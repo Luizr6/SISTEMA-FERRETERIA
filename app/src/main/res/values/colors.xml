@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores Principales (Tema Ferretería Industrial) -->
+    <color name="primary">#1E3A8A</color>
+    <color name="primary_dark">#172554</color>
+    <color name="primary_light">#3B82F6</color>
+    <color name="secondary">#D97706</color>
+    <color name="secondary_dark">#B45309</color>
+
+    <!-- Superficies y Fondos -->
+    <color name="background">#F8FAFC</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F1F5F9</color>
+
+    <!-- Textos -->
+    <color name="text_primary">#0F172A</color>
+    <color name="text_secondary">#64748B</color>
+    <color name="text_on_primary">#FFFFFF</color>
+
+    <!-- Estados de Stock y Alertas -->
+    <color name="stock_ok">#16A34A</color>
+    <color name="stock_ok_bg">#DCFCE7</color>
+    <color name="stock_low">#DC2626</color>
+    <color name="stock_low_bg">#FEE2E2</color>
+    <color name="stock_warning">#EA580C</color>
+    <color name="stock_warning_bg">#FFEDD5</color>
+
+    <!-- Separadores y Bordes -->
+    <color name="divider">#E2E8F0</color>
+    <color name="border">#CBD5E1</color>
+</resources>
