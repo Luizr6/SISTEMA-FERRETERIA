@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<body>
+<h2>Probar Login Ferretería</h2>
+<input id="user" placeholder="usuario" value="luis">
+<input id="pass" type="password" placeholder="clave" value="1234">
+<button onclick="login()">Login</button>
+<pre id="result"></pre>
+
+<script>
+async function login(){
+    let u = document.getElementById('user').value
+    let p = document.getElementById('pass').value
+    let r = await fetch('http://127.0.0.1:8000/api/login/', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({username:u, password:p})
+    })
+    let data = await r.json()
+    document.getElementById('result').innerText = JSON.stringify(data, null, 2)
+    }
+</script>
+</body>
+</html>
