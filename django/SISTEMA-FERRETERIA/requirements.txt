@@ -1,0 +1,11 @@
+asgiref==3.12.1
+Django==6.1
+django-cors-headers==4.9.0
+djangorestframework==3.18.1
+djangorestframework-simplejwt==5.5.1
+drf-spectacular==0.30.0
+reportlab>=4.2,<6
+sqlparse==0.6.0
+tzdata==2026.3
+# Opcional, solo si usaran PostgreSQL (variable POSTGRES_DB en .env):
+# psycopg[binary]>=3.2

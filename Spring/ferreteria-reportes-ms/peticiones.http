@@ -1,0 +1,39 @@
+### Peticiones de ejemplo (IntelliJ HTTP Client o la extensión REST Client de VS Code)
+### 1) Obtener el token en Django
+POST http://localhost:8000/api/auth/login/
+Content-Type: application/json
+
+{"username": "demo_admin", "password": "Demo1234!"}
+
+### Pega aquí el "access" de la respuesta anterior
+@token = PEGAR_TOKEN
+
+### Salud (público)
+GET http://localhost:8081/api/salud
+
+### Reporte de ventas de hoy (JSON)
+GET http://localhost:8081/api/reportes/ventas-dia
+Authorization: Bearer {{token}}
+
+### Reporte de ventas de un día en PDF
+GET http://localhost:8081/api/reportes/ventas-dia/pdf?fecha=2026-10-27
+Authorization: Bearer {{token}}
+
+### Stock crítico
+GET http://localhost:8081/api/reportes/stock-critico
+Authorization: Bearer {{token}}
+
+### Registrar un evento como lo hace Django (API key de servicio)
+POST http://localhost:8081/api/auditoria/eventos
+Content-Type: application/json
+X-API-Key: clave-servicio-dev-2026
+
+{"tipo": "LOGIN_FALLIDO", "descripcion": "Intento fallido para demo_admin", "usuario": "demo_admin", "modulo": "cuentas"}
+
+### Consultar la bitácora
+GET http://localhost:8081/api/auditoria/eventos?tipo=LOGIN_FALLIDO&page=0&size=20
+Authorization: Bearer {{token}}
+
+### Resumen de los últimos 7 días
+GET http://localhost:8081/api/auditoria/resumen?dias=7
+Authorization: Bearer {{token}}

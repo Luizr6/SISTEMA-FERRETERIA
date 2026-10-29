@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------
+   Tokens de color (RGB sin comas para que Tailwind admita opacidad)
+   Claro: grises fríos + azul corporativo. Oscuro: pizarra profunda.
+   ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    --fondo: 246 247 249;
+    --superficie: 255 255 255;
+    --lateral: 255 255 255;
+    --solido: 17 24 39;
+
+    --gris-50: 249 250 251;  --gris-100: 243 244 246; --gris-200: 229 231 235; --gris-300: 209 213 219;
+    --gris-400: 156 163 175; --gris-500: 107 114 128; --gris-600: 75 85 99;    --gris-700: 55 65 81;
+    --gris-800: 31 41 55;    --gris-900: 17 24 39;
+
+    --acento-50: 239 246 255; --acento-100: 219 234 254; --acento-200: 191 219 254;
+    --acento-400: 96 165 250; --acento-500: 59 130 246;  --acento-600: 37 99 235; --acento-700: 29 78 216;
+
+    --exito-50: 236 253 245; --exito-100: 209 250 229; --exito-500: 16 185 129; --exito-600: 5 150 105; --exito-700: 4 120 87;
+    --aviso-50: 255 251 235; --aviso-100: 254 243 199; --aviso-200: 253 230 138;
+    --aviso-500: 245 158 11; --aviso-600: 217 119 6;   --aviso-700: 180 83 9;
+    --peligro-50: 254 242 242; --peligro-100: 254 226 226; --peligro-500: 239 68 68; --peligro-600: 220 38 38; --peligro-700: 185 28 28;
+    color-scheme: light;
+  }
+
+  .dark {
+    --fondo: 10 13 20;
+    --superficie: 17 21 30;
+    --lateral: 13 17 25;
+    --solido: 51 65 85;
+
+    /* escala invertida: gris-900 (texto principal) pasa a ser casi blanco */
+    --gris-50: 22 27 38;     --gris-100: 30 36 49;    --gris-200: 42 49 64;    --gris-300: 61 70 88;
+    --gris-400: 100 110 130; --gris-500: 140 150 168; --gris-600: 170 179 195; --gris-700: 203 210 222;
+    --gris-800: 226 231 238; --gris-900: 243 245 248;
+
+    --acento-50: 22 34 62;   --acento-100: 28 45 85;   --acento-200: 37 64 122;
+    --acento-400: 96 165 250; --acento-500: 96 155 250; --acento-600: 59 130 246; --acento-700: 147 187 253;
+
+    --exito-50: 9 42 34;   --exito-100: 12 60 46;  --exito-500: 16 185 129; --exito-600: 52 211 153; --exito-700: 110 231 183;
+    --aviso-50: 45 32 8;   --aviso-100: 66 45 10;  --aviso-200: 92 62 14;
+    --aviso-500: 245 158 11; --aviso-600: 251 191 36; --aviso-700: 252 211 77;
+    --peligro-50: 50 18 20; --peligro-100: 72 24 27; --peligro-500: 239 68 68; --peligro-600: 248 113 113; --peligro-700: 252 165 165;
+    color-scheme: dark;
+  }
+
+  html { -webkit-tap-highlight-color: transparent; }
+  body { @apply bg-fondo font-sans text-gris-900 antialiased; font-size: 14.5px; font-feature-settings: 'ss01', 'cv11'; }
+  /* transición suave al cambiar de tema (solo colores) */
+  .tema-transicion, .tema-transicion *, .tema-transicion *::before, .tema-transicion *::after {
+    transition: background-color .25s ease, border-color .25s ease, color .2s ease, fill .25s ease !important;
+  }
+  h1, h2, h3, h4 { @apply font-display font-semibold tracking-tight text-gris-900; }
+  :focus-visible { @apply outline-none ring-2 ring-acento-500 ring-offset-2 ring-offset-fondo; }
+  ::selection { @apply bg-acento-200; }
+  input[type='date'] { color-scheme: inherit; }
+  .cifra { font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-lg border border-gris-200 bg-superficie px-3 py-2 text-sm text-gris-900 shadow-panel
+           placeholder:text-gris-400 transition-colors
+           hover:border-gris-300 focus:border-acento-500 focus:outline-none focus:ring-2 focus:ring-acento-500/20
+           disabled:bg-gris-100 disabled:text-gris-500;
+  }
+  .label { @apply mb-1.5 block text-[13px] font-medium text-gris-700; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium
+           transition active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary { @apply btn bg-acento-600 text-white shadow-panel hover:bg-acento-700 dark:hover:bg-acento-500; }
+  .btn-dark { @apply btn bg-solido text-white hover:opacity-90; }
+  .btn-secondary { @apply btn border border-gris-200 bg-superficie text-gris-800 shadow-panel hover:bg-gris-50; }
+  .btn-ghost { @apply btn px-2.5 text-gris-600 hover:bg-gris-100 hover:text-gris-900; }
+  .btn-danger { @apply btn bg-peligro-600 text-white hover:bg-peligro-700 dark:bg-peligro-500 dark:hover:bg-peligro-600; }
+  .icon-btn { @apply inline-flex h-8 w-8 items-center justify-center rounded-md text-gris-500 transition hover:bg-gris-100 hover:text-gris-900; }
+
+  .panel { @apply rounded-panel border border-gris-200 bg-superficie shadow-panel; }
+  .th { @apply whitespace-nowrap px-4 py-2.5 text-left text-xs font-medium text-gris-500; }
+  .td { @apply px-4 py-3 text-sm align-middle; }
+  .tabla thead { @apply border-b border-gris-200 bg-gris-50; }
+  .tabla tbody tr { @apply border-b border-gris-100 transition-colors last:border-0 hover:bg-gris-50; }
+
+  /* Código de producto: chip sobrio */
+  .etiqueta {
+    @apply inline-flex items-center whitespace-nowrap rounded-md border border-gris-200 bg-gris-50 px-1.5 py-px
+           text-[11.5px] font-medium text-gris-600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+  }
+
+  .chip { @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium; }
+}
+
+@keyframes entra { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+/* backwards: al terminar no deja transform (si no, rompe position:fixed de las barras inferiores) */
+.anim-entra { animation: entra .25s ease-out backwards; }
