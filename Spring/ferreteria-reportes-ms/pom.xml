@@ -25,6 +25,12 @@
     </properties>
 
     <dependencies>
+        <!-- Base aislada para el laboratorio; nunca se usa en producción. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- API REST -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
