@@ -70,9 +70,9 @@ class VentaSerializer(serializers.ModelSerializer):
         model = Venta
         fields = ['id', 'numero', 'fecha', 'cliente', 'cliente_nombre', 'cliente_documento',
                   'vendedor', 'vendedor_nombre', 'metodo_pago', 'metodo_pago_display', 'origen',
-                  'subtotal', 'igv', 'total', 'estado', 'observacion', 'pedido_numero',
+                  'subtotal', 'igv', 'total', 'estado', 'observacion', 'pedido_numero', 'caja',
                   'anulada_por_nombre', 'fecha_anulacion', 'motivo_anulacion', 'detalles']
-        read_only_fields = ['numero', 'fecha', 'vendedor', 'subtotal', 'igv', 'total', 'estado',
+        read_only_fields = ['numero', 'fecha', 'vendedor', 'subtotal', 'igv', 'total', 'estado', 'caja',
                             'fecha_anulacion', 'motivo_anulacion']
 
     def get_pedido_numero(self, obj) -> str | None:

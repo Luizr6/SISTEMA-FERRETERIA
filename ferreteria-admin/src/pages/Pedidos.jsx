@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Check, ClipboardCheck, FileText, Globe, Loader2, MessageCircle, Phone, Smartphone, X } from 'lucide-react'
-import { pedidosService, ventasService } from '../services/comercial'
+import { clientesService, pedidosService, ventasService } from '../services/comercial'
 import { errorMessage, fechaHora, hace, METODOS_PAGO, money } from '../utils/format'
 import { useToast } from '../components/ui/Toast'
 import { useAvisos } from '../context/AvisosContext'
@@ -18,23 +19,70 @@ const ORIGEN = {
   MOSTRADOR: { icon: Globe, label: 'Mostrador', color: 'bg-gris-100 text-gris-600' },
 }
 
+/** Cliente al que sale el comprobante. SUNAT lo exige en facturas y en boletas de más de S/ 700. */
+function ClienteComprobante({ valor, onChange }) {
+  const [texto, setTexto] = useState('')
+  const [opciones, setOpciones] = useState([])
+  useEffect(() => {
+    if (texto.trim().length < 2) { setOpciones([]); return undefined }
+    const t = setTimeout(() => {
+      clientesService.listar({ search: texto.trim() }).then((r) => setOpciones((r.results || r).slice(0, 6))).catch(() => setOpciones([]))
+    }, 300)
+    return () => clearTimeout(t)
+  }, [texto])
+
+  if (valor) {
+    return (
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-gris-200 bg-white px-3 py-2 text-sm">
+        <span className="min-w-0 truncate"><b>{valor.nombre}</b>
+          {valor.numero_documento && <span className="text-gris-500"> · {valor.tipo_documento} {valor.numero_documento}</span>}</span>
+        <button type="button" className="text-acento-600 hover:underline" onClick={() => onChange(null)}>Cambiar</button>
+      </div>
+    )
+  }
+  return (
+    <div className="relative">
+      <input className="input" placeholder="Buscar cliente por nombre, DNI o RUC" value={texto}
+        onChange={(e) => setTexto(e.target.value)} aria-label="Buscar cliente" />
+      {opciones.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-gris-200 bg-white shadow-lg">
+          {opciones.map((c) => (
+            <li key={c.id}>
+              <button type="button" className="w-full px-3 py-2 text-left text-sm hover:bg-gris-50"
+                onClick={() => { onChange(c); setTexto(''); setOpciones([]) }}>
+                <b>{c.nombre}</b> <span className="text-gris-500">{c.tipo_documento} {c.numero_documento || 'sin documento'}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 function DetallePedido({ pedido, onCambio }) {
   const toast = useToast()
+  const navigate = useNavigate()
   const [metodo, setMetodo] = useState('EFECTIVO')
   const [rechazando, setRechazando] = useState(false)
   const [motivo, setMotivo] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
+  const [cliente, setCliente] = useState(null)
   const o = ORIGEN[pedido.origen]
   const OIcon = o.icon
 
-  useEffect(() => { setError(''); setRechazando(false); setMotivo('') }, [pedido.id])
+  useEffect(() => {
+    setError(''); setRechazando(false); setMotivo('')
+    setCliente(pedido.cliente ? { id: pedido.cliente, nombre: pedido.cliente_nombre } : null)
+  }, [pedido.id, pedido.cliente, pedido.cliente_nombre])
 
   const aprobar = async () => {
     setOcupado(true); setError('')
     try {
-      const p = await pedidosService.aprobar(pedido.id, { metodo_pago: metodo })
-      toast(`Pedido ${p.numero} aprobado. Se generó la boleta ${p.venta_numero}.`)
+      const p = await pedidosService.aprobar(pedido.id, { metodo_pago: metodo, cliente: cliente?.id ?? null })
+      const tipo = String(p.venta_numero || '').startsWith('F') ? 'la factura' : 'la boleta'
+      toast(`Pedido ${p.numero} aprobado. Se generó ${tipo} ${p.venta_numero}.`)
       onCambio(p)
     } catch (e) {
       setError(errorMessage(e))
@@ -74,6 +122,12 @@ function DetallePedido({ pedido, onCambio }) {
           {pedido.contacto_telefono && (
             <p className="mt-0.5 flex items-center gap-1.5 text-gris-600"><Phone className="h-3.5 w-3.5" /> {pedido.contacto_telefono}</p>
           )}
+          {pedido.origen === 'WHATSAPP' && pedido.contacto_telefono && (
+            <button className="btn-secondary mt-2.5 border-exito-100 bg-exito-50 text-exito-700 hover:bg-exito-100"
+              onClick={() => navigate(`/whatsapp?tel=${encodeURIComponent(pedido.contacto_telefono.replace(/\D/g, ''))}`)}>
+              <MessageCircle className="h-4 w-4" /> Abrir chat de WhatsApp
+            </button>
+          )}
           {pedido.observacion && <p className="mt-1.5 text-gris-600">{pedido.observacion}</p>}
         </div>
       </div>
@@ -107,6 +161,9 @@ function DetallePedido({ pedido, onCambio }) {
             {!pedido.puede_aprobarse && !error && (
               <Aviso tono="aviso">No hay stock suficiente para todo el pedido. Repón o rechaza el pedido.</Aviso>
             )}
+            <Campo label="Cliente del comprobante" hint="Obligatorio para factura (RUC) o boletas de más de S/ 700 (DNI).">
+              <ClienteComprobante valor={cliente} onChange={setCliente} />
+            </Campo>
             <Campo label="Forma de pago al aprobar">
               <select className="input" value={metodo} onChange={(e) => setMetodo(e.target.value)}>
                 {METODOS_PAGO.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -119,7 +176,7 @@ function DetallePedido({ pedido, onCambio }) {
               <button className="btn-secondary" disabled={ocupado} onClick={() => setRechazando(true)}>
                 <X className="h-4 w-4" /> Rechazar</button>
             </div>
-            <p className="text-xs text-gris-500">Al aprobar se crea la boleta y se descuenta el stock.</p>
+            <p className="text-xs text-gris-500">Al aprobar se crea el comprobante y se descuenta el stock.</p>
           </div>
         )}
 
@@ -132,7 +189,8 @@ function DetallePedido({ pedido, onCambio }) {
         )}
         {['RECHAZADO', 'CANCELADO'].includes(pedido.estado) && (
           <p className="mt-3 text-sm text-gris-600">
-            {pedido.estado === 'RECHAZADO' ? 'Rechazado' : 'Cancelado'} por {pedido.revisado_por_nombre}: {pedido.motivo_rechazo}
+            {pedido.estado === 'RECHAZADO' ? 'Rechazado' : 'Cancelado'}
+            {pedido.revisado_por_nombre ? ` por ${pedido.revisado_por_nombre}` : ''}: {pedido.motivo_rechazo}
           </p>
         )}
       </div>

@@ -10,7 +10,7 @@
   :root {
     --fondo: 246 247 249;
     --superficie: 255 255 255;
-    --lateral: 255 255 255;
+    --lateral: 15 30 61;       /* azul marino del menú lateral */
     --solido: 17 24 39;
 
     --gris-50: 249 250 251;  --gris-100: 243 244 246; --gris-200: 229 231 235; --gris-300: 209 213 219;
@@ -30,7 +30,7 @@
   .dark {
     --fondo: 10 13 20;
     --superficie: 17 21 30;
-    --lateral: 13 17 25;
+    --lateral: 12 19 36;
     --solido: 51 65 85;
 
     /* escala invertida: gris-900 (texto principal) pasa a ser casi blanco */

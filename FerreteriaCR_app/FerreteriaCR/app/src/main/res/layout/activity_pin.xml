@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/navy"
+    android:gravity="center_horizontal"
+    android:orientation="vertical"
+    android:paddingStart="28dp"
+    android:paddingTop="56dp"
+    android:paddingEnd="28dp"
+    android:paddingBottom="28dp">
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:contentDescription="Logo de Ferretería C&amp;R"
+        android:src="@drawable/logo_cr" />
+
+    <TextView
+        android:id="@+id/txtTitulo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:textColor="@color/blanco"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtSubtitulo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:textColor="@color/texto_claro"
+        android:textSize="15sp" />
+
+    <LinearLayout
+        android:id="@+id/filaPuntos"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:orientation="horizontal">
+            <View
+                android:id="@+id/punto1"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="9dp"
+                android:layout_marginEnd="9dp"
+                android:background="@drawable/bg_pin_vacio" />
+            <View
+                android:id="@+id/punto2"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="9dp"
+                android:layout_marginEnd="9dp"
+                android:background="@drawable/bg_pin_vacio" />
+            <View
+                android:id="@+id/punto3"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="9dp"
+                android:layout_marginEnd="9dp"
+                android:background="@drawable/bg_pin_vacio" />
+            <View
+                android:id="@+id/punto4"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="9dp"
+                android:layout_marginEnd="9dp"
+                android:background="@drawable/bg_pin_vacio" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtError"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:gravity="center"
+        android:minHeight="20dp"
+        android:textColor="#FCA5A5"
+        android:textSize="14sp" />
+
+    <GridLayout
+        android:layout_width="300dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:columnCount="3">
+        <TextView
+            android:id="@+id/tecla1"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="1"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla2"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="2"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla3"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="3"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla4"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="4"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla5"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="5"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla6"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="6"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla7"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="7"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla8"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="8"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <TextView
+            android:id="@+id/tecla9"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="9"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp" />
+        <TextView
+            android:id="@+id/tecla0"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_tecla_pin_ripple"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:text="0"
+            android:textColor="@color/blanco"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <ImageView
+            android:id="@+id/teclaBorrar"
+            android:layout_width="0dp"
+            android:layout_height="68dp"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="Borrar"
+            android:focusable="true"
+            android:padding="20dp"
+            android:src="@drawable/ic_backspace"
+            app:tint="@color/blanco" />
+    </GridLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnUsarClave"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ingresar con usuario y contraseña"
+        android:textAllCaps="false"
+        android:textColor="@color/ambar"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtAyuda"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:textColor="#A9B6CF"
+        android:textSize="12sp" />
+</LinearLayout>

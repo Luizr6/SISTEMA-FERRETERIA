@@ -6,6 +6,7 @@ archivo `.env` en la raíz del proyecto (ver `.env.example`). Sin `.env` el proy
 arranca igual en modo desarrollo con SQLite.
 """
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -64,6 +65,7 @@ INSTALLED_APPS = [
     # Terceros
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',   # anula los refresh viejos al renovar la sesión
     'corsheaders',
     'drf_spectacular',
     # Apps del proyecto
@@ -73,6 +75,8 @@ INSTALLED_APPS = [
     'compras',      # Órdenes de compra y recepción (Sprint 5)
     'ventas',       # Clientes, ventas, carrito, pedidos, PDF, reportes (Sprints 4 y 6)
     'whatsapp',     # Webhook y bot de WhatsApp Cloud API (Sprint 7)
+    'asistente',    # Asistente IA y alertas del Administrador (app móvil)
+    'caja',         # Caja por vendedor: apertura, movimientos y cierre con arqueo
 ]
 
 MIDDLEWARE = [
@@ -181,9 +185,15 @@ REST_FRAMEWORK = {
     'EXCEPTION_HANDLER': 'ferreteria.exceptions.manejador_errores',
 }
 
+# Sesión de 30 días que se renueva con el uso: cada vez que la web o la app renuevan el access,
+# reciben un refresh nuevo (válido otros 30 días) y el anterior queda anulado (lista negra).
+# Quien no entra en 30 días tiene que volver a iniciar sesión.
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(env('JWT_ACCESS_MINUTOS', '60'))),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env('JWT_REFRESH_DIAS', '7'))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(env('JWT_REFRESH_DIAS', '30'))),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
@@ -209,18 +219,26 @@ CORS_ALLOWED_ORIGINS = env_lista(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000',
 )
-CORS_EXPOSE_HEADERS = ['Content-Disposition']  # para que React lea el nombre del PDF
+CORS_EXPOSE_HEADERS = ['Content-Disposition', 'X-Emisor']  # nombre del PDF y quién lo generó (Spring o Django)
 
 
 # ---------------------------------------------------------------------------
 # Datos del negocio (salen en el comprobante PDF)
 # ---------------------------------------------------------------------------
 FERRETERIA = {
-    'NOMBRE': env('FERRETERIA_NOMBRE', 'Ferretería El Constructor'),
+    'NOMBRE': env('FERRETERIA_NOMBRE', 'FERRETERÍA C&R'),
     'RUC': env('FERRETERIA_RUC', '20000000001'),
     'DIRECCION': env('FERRETERIA_DIRECCION', 'Av. Principal 123'),
     'TELEFONO': env('FERRETERIA_TELEFONO', '999 999 999'),
     'SERIE_BOLETA': env('FERRETERIA_SERIE', 'B001'),
+    'SERIE_FACTURA': env('FERRETERIA_SERIE_FACTURA', 'F001'),   # clientes con RUC
+    # SUNAT: boletas por encima de este monto deben identificar al comprador (DNI)
+    'BOLETA_LIMITE_SIN_DNI': env('FERRETERIA_BOLETA_LIMITE_SIN_DNI', '700'),
+    'HORARIO': env('FERRETERIA_HORARIO', 'Lunes a sábado de 8:00 a. m. a 7:00 p. m.'),
+    # Horario para el bot (pausa cuando piden asesor): 0 = lunes ... 6 = domingo
+    'DIAS_ATENCION': env('FERRETERIA_DIAS_ATENCION', '0-5'),
+    'HORA_APERTURA': env('FERRETERIA_HORA_APERTURA', '08:00'),
+    'HORA_CIERRE': env('FERRETERIA_HORA_CIERRE', '19:00'),
 }
 IGV_TASA = env('IGV_TASA', '0.18')
 
@@ -239,6 +257,30 @@ WHATSAPP = {
 
 
 # ---------------------------------------------------------------------------
+# Inteligencia artificial (RF30) - Groq, API compatible con OpenAI
+# La usan el bot de WhatsApp (entender al cliente) y el asistente del Administrador.
+# Sin GROQ_API_KEY todo funciona igual con el bot por reglas.
+# La IA nunca inventa precios ni stock: solo redacta con datos de la base de datos.
+# ---------------------------------------------------------------------------
+# Caja: si es obligatoria, nadie puede cobrar sin haber abierto su caja.
+# En las pruebas automáticas se desactiva por defecto (las de caja la activan).
+CAJA = {
+    'OBLIGATORIA': env_bool('CAJA_OBLIGATORIA', True) and 'test' not in sys.argv,
+}
+
+IA = {
+    'API_KEY': env('GROQ_API_KEY'),
+    'MODELO': env('GROQ_MODEL') or 'openai/gpt-oss-120b',
+    # Si el modelo principal llega a su límite gratuito por minuto, se usa este (tiene su propio cupo)
+    'MODELO_RESPALDO': env('GROQ_MODEL_RESPALDO', 'openai/gpt-oss-20b'),
+    'URL': env('GROQ_URL', 'https://api.groq.com/openai/v1/chat/completions'),
+    'TIMEOUT': int(env('IA_TIMEOUT_SEGUNDOS') or 20),
+    # Mensajes previos de la conversación que se envían como contexto ("dame 20" -> ¿de qué?)
+    'HISTORIAL': int(env('IA_HISTORIAL_MENSAJES') or 4),
+}
+
+
+# ---------------------------------------------------------------------------
 # Microservicio de reportes y auditoría (Spring Boot) - opcional
 # Sin MS_AUDITORIA_URL no se envía nada y el sistema funciona igual.
 # ---------------------------------------------------------------------------
@@ -247,6 +289,15 @@ MS_AUDITORIA = {
     'API_KEY': env('MS_API_KEY', 'clave-servicio-dev-2026'),
     'TIMEOUT': 3,
     'SINCRONO': env_bool('MS_AUDITORIA_SINCRONO', False),  # True solo en pruebas
+}
+
+# Facturación y reportes en Spring Boot: el comprobante de cada venta lo emite Spring
+# (XML UBL, hash, QR, PDF A5 y ticket). Si Spring no responde, Django entrega su PDF interno.
+# Sin MS_REPORTES_URL se deduce de MS_AUDITORIA_URL (misma máquina, mismo puerto).
+_ms_base = env('MS_REPORTES_URL') or (MS_AUDITORIA['URL'] or '').split('/auditoria/')[0]
+MS_REPORTES = {
+    'URL': _ms_base.rstrip('/'),                          # ej. http://localhost:8081/api
+    'TIMEOUT': int(env('MS_REPORTES_TIMEOUT') or 8),
 }
 
 

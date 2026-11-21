@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nav_inicio" android:icon="@drawable/ic_home" android:title="Inicio" />
+    <item android:id="@+id/nav_vender" android:icon="@drawable/ic_cart" android:title="Vender" />
+    <item android:id="@+id/nav_pedidos" android:icon="@drawable/ic_pedidos" android:title="Pedidos" />
+    <item android:id="@+id/nav_whatsapp" android:icon="@drawable/ic_chat" android:title="WhatsApp" />
+    <item android:id="@+id/nav_mas" android:icon="@drawable/ic_more" android:title="Más" />
+</menu>

@@ -60,6 +60,7 @@ const CAMPOS = {
   precio_compra: 'Precio de compra', estado: 'Estado', carrito: 'Carrito', new_password: 'Nueva contraseña',
   old_password: 'Contraseña actual', token: 'Enlace', username: 'Usuario', password: 'Contraseña', ruc: 'RUC',
   razon_social: 'Razón social', archivo: 'Archivo', motivo: 'Motivo', texto: 'Mensaje',
+  monto: 'Monto', concepto: 'Concepto', monto_inicial: 'Monto inicial', monto_contado: 'Monto contado',
 }
 
 /** Convierte el error de Django ({codigo, mensaje, detalle}) en texto legible. */
@@ -75,7 +76,7 @@ export function errorMessage(err) {
       const txt = Array.isArray(msgs)
         ? msgs.map((m) => (typeof m === 'object' ? Object.values(m).flat().join(' ') : m)).join(' ')
         : typeof msgs === 'object' ? Object.values(msgs).flat().join(' ') : String(msgs)
-      return ['detail', 'non_field_errors'].includes(campo) ? txt : `${CAMPOS[campo] || campo}: ${txt}`
+      return ['detail', 'non_field_errors', 'caja'].includes(campo) ? txt : `${CAMPOS[campo] || campo}: ${txt}`
     })
     if (partes.length) return partes.join(' · ')
   }

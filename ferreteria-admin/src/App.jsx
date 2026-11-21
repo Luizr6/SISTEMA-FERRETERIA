@@ -6,6 +6,7 @@ import RecuperarClave from './pages/RecuperarClave'
 import Dashboard from './pages/Dashboard'
 import Productos from './pages/Productos'
 import Vender from './pages/Vender'
+import Caja from './pages/Caja'
 import Ventas from './pages/Ventas'
 import Pedidos from './pages/Pedidos'
 import Compras from './pages/Compras'
@@ -25,6 +26,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/vender" element={<Vender />} />
+          <Route path="/caja" element={<Caja />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/whatsapp" element={<WhatsApp />} />
           <Route path="/ventas" element={<Ventas />} />

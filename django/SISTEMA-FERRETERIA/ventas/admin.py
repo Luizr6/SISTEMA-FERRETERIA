@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import CarritoItem, Cliente, DetallePedido, DetalleVenta, Pedido, Venta
+from .models import CarritoItem, Cliente, DetallePedido, DetalleVenta, Pedido, Venta, SerieComprobante
 
 
 class DetalleInline(admin.TabularInline):
@@ -38,3 +38,4 @@ class ClienteAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CarritoItem)
+admin.site.register(SerieComprobante)

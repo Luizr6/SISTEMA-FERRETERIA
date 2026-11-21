@@ -23,7 +23,9 @@ import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 
 import pe.tecsup.ferreteria.ms.config.FerreteriaProperties;
+import pe.tecsup.ferreteria.ms.web.dto.ReporteCajas;
 import pe.tecsup.ferreteria.ms.web.dto.ReporteStockCritico;
+import pe.tecsup.ferreteria.ms.web.dto.ReporteVentasPeriodo;
 import pe.tecsup.ferreteria.ms.web.dto.ReporteVentasDia;
 
 /** Exporta los reportes a PDF (A4) con OpenPDF. */
@@ -44,7 +46,8 @@ public class PdfService {
     private static final Font NORMAL = new Font(Font.HELVETICA, 8.5f, Font.NORMAL, new Color(31, 41, 55));
     private static final Font CIFRA_GRANDE = new Font(Font.HELVETICA, 14, Font.BOLD, new Color(17, 24, 39));
     private static final java.util.Set<String> COLUMNAS_NUMERICAS =
-            java.util.Set.of("Ventas", "Total", "Unidades", "Importe", "Stock", "Mínimo", "Pedir", "Costo");
+            java.util.Set.of("Ventas", "Total", "Unidades", "Importe", "Stock", "Mínimo", "Pedir", "Costo",
+                    "Inicial", "Esperado", "Contado", "Diferencia", "Cajas", "Faltante", "Sobrante", "Vendido");
     private static final DateTimeFormatter FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter FECHA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
@@ -133,6 +136,99 @@ public class PdfService {
                 celda(t, soles(i.costoReposicion()), Element.ALIGN_RIGHT, null);
             }
             vacioSiCorresponde(t, r.productos().isEmpty(), 8);
+            doc.add(t);
+        });
+    }
+
+    public byte[] ventasDelPeriodo(ReporteVentasPeriodo r) {
+        return generar(doc -> {
+            encabezado(doc, "Reporte de ventas del " + FECHA.format(r.desde()) + " al " + FECHA.format(r.hasta()),
+                    "Generado el " + FECHA_HORA.format(r.generadoEn().atZone(zona)));
+
+            PdfPTable kpis = new PdfPTable(4);
+            kpis.setWidthPercentage(100);
+            kpi(kpis, "Total vendido (con IGV)", soles(r.total()));
+            kpi(kpis, "Ventas completadas", String.valueOf(r.ventasCompletadas()));
+            kpi(kpis, "Ticket promedio", soles(r.ticketPromedio()));
+            kpi(kpis, "Anuladas", r.ventasAnuladas() + " (" + soles(r.montoAnulado()) + ")");
+            doc.add(kpis);
+
+            Paragraph igv = new Paragraph("Op. gravada " + soles(r.subtotal()) + "    IGV " + soles(r.igv()), SUBTITULO);
+            igv.setSpacingBefore(4);
+            doc.add(igv);
+
+            seccion(doc, "Por día");
+            doc.add(tablaFilas("Fecha", r.porDia().stream().filter(f -> f.cantidad() > 0)
+                    .map(f -> new ReporteVentasDia.Fila(FECHA.format(java.time.LocalDate.parse(f.clave())), f.cantidad(), f.total()))
+                    .toList()));
+
+            seccion(doc, "Por vendedor");
+            doc.add(tablaFilas("Vendedor", r.porVendedor()));
+
+            seccion(doc, "Por categoría (valor de venta sin IGV; la columna Ventas son unidades)");
+            doc.add(tablaFilas("Categoría", r.porCategoria()));
+
+            seccion(doc, "Por forma de pago");
+            doc.add(tablaFilas("Forma de pago", r.porMetodoPago()));
+
+            seccion(doc, "Por canal de venta");
+            doc.add(tablaFilas("Canal", r.porOrigen()));
+
+            seccion(doc, "Productos más vendidos");
+            PdfPTable top = tabla(new float[] {1.3f, 4, 1.2f, 1.6f}, "Código", "Producto", "Unidades", "Importe");
+            for (ReporteVentasDia.ProductoVendido p : r.topProductos()) {
+                celda(top, p.codigo(), Element.ALIGN_LEFT, null);
+                celda(top, p.nombre(), Element.ALIGN_LEFT, null);
+                celda(top, String.valueOf(p.unidades()), Element.ALIGN_RIGHT, null);
+                celda(top, soles(p.importe()), Element.ALIGN_RIGHT, null);
+            }
+            vacioSiCorresponde(top, r.topProductos().isEmpty(), 4);
+            doc.add(top);
+        });
+    }
+
+    public byte[] cajas(ReporteCajas r) {
+        return generar(doc -> {
+            encabezado(doc, "Arqueos de caja del " + FECHA.format(r.desde()) + " al " + FECHA.format(r.hasta()),
+                    "Generado el " + FECHA_HORA.format(r.generadoEn().atZone(zona)));
+
+            PdfPTable kpis = new PdfPTable(4);
+            kpis.setWidthPercentage(100);
+            kpi(kpis, "Cajas", r.cajas() + (r.abiertas() > 0 ? " (" + r.abiertas() + " abiertas)" : ""));
+            kpi(kpis, "Con faltante", String.valueOf(r.conFaltante()));
+            kpi(kpis, "Total faltante", soles(r.totalFaltante()));
+            kpi(kpis, "Total sobrante", soles(r.totalSobrante()));
+            doc.add(kpis);
+
+            seccion(doc, "Por vendedor");
+            PdfPTable v = tabla(new float[] {3, 1, 1.2f, 1.6f, 1.6f, 1.8f}, "Vendedor", "Cajas", "Con faltante", "Faltante", "Sobrante", "Vendido");
+            for (ReporteCajas.PorVendedor p : r.porVendedor()) {
+                celda(v, p.vendedor(), Element.ALIGN_LEFT, null);
+                celda(v, String.valueOf(p.cajas()), Element.ALIGN_RIGHT, null);
+                celda(v, String.valueOf(p.conFaltante()), Element.ALIGN_RIGHT, p.conFaltante() > 0 ? ROJO : null);
+                celda(v, soles(p.faltante()), Element.ALIGN_RIGHT, p.faltante().signum() > 0 ? ROJO : null);
+                celda(v, soles(p.sobrante()), Element.ALIGN_RIGHT, null);
+                celda(v, soles(p.vendido()), Element.ALIGN_RIGHT, null);
+            }
+            vacioSiCorresponde(v, r.porVendedor().isEmpty(), 6);
+            doc.add(v);
+
+            seccion(doc, "Detalle de cajas");
+            PdfPTable t = tabla(new float[] {2.2f, 2.4f, 1.3f, 1.5f, 1.5f, 1.5f, 1.6f},
+                    "Vendedor", "Apertura / cierre", "Inicial", "Esperado", "Contado", "Diferencia", "Estado");
+            for (ReporteCajas.CajaFila c : r.detalle()) {
+                Color color = c.diferencia() == null ? null : c.diferencia().signum() < 0 ? ROJO : c.diferencia().signum() > 0 ? AMBAR : null;
+                celda(t, c.vendedor(), Element.ALIGN_LEFT, null);
+                celda(t, FECHA_HORA.format(c.fechaApertura().atZone(zona))
+                        + (c.fechaCierre() != null ? " a " + c.fechaCierre().atZone(zona).toLocalTime().withNano(0).withSecond(0) : ""),
+                        Element.ALIGN_LEFT, null);
+                celda(t, soles(c.montoInicial()), Element.ALIGN_RIGHT, null);
+                celda(t, soles(c.esperado()), Element.ALIGN_RIGHT, null);
+                celda(t, c.contado() == null ? "-" : soles(c.contado()), Element.ALIGN_RIGHT, null);
+                celda(t, c.diferencia() == null ? "-" : soles(c.diferencia()), Element.ALIGN_RIGHT, color);
+                celda(t, "ABIERTA".equals(c.estado()) ? "Abierta" : "Cerrada", Element.ALIGN_LEFT, "ABIERTA".equals(c.estado()) ? AMBAR : null);
+            }
+            vacioSiCorresponde(t, r.detalle().isEmpty(), 7);
             doc.add(t);
         });
     }

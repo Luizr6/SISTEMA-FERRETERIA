@@ -17,6 +17,7 @@ from auditoria.utils import AuditoriaMixin, registrar
 from cuentas.permissions import EsAdmin, es_admin
 from productos.models import Producto
 from . import services
+from . import facturacion
 from .comprobante import generar_pdf_venta
 from .models import CarritoItem, Cliente, DetalleVenta, Pedido, Venta
 from .serializers import (
@@ -120,12 +121,23 @@ class VentaViewSet(mixins.CreateModelMixin, mixins.ListModelMixin,
     @extend_schema(responses={(200, 'application/pdf'): OpenApiTypes.BINARY})
     @action(detail=True, methods=['get'])
     def comprobante(self, request, pk=None):
-        """FER-49: PDF de la boleta interna. ?descargar=true para forzar descarga."""
+        """
+        PDF del comprobante. ?formato=A5|TICKET  ?descargar=true para forzar descarga.
+        Lo genera el servicio de facturación (Spring Boot) con QR y hash; si Spring no responde,
+        se entrega el PDF interno de Django (respaldo). La cabecera X-Emisor dice quién lo generó.
+        """
         venta = self.get_object()
-        pdf = generar_pdf_venta(venta)
-        resp = HttpResponse(pdf, content_type='application/pdf')
+        formato = (request.query_params.get('formato') or 'A5').upper()
         modo = 'attachment' if _bool_param(request.query_params.get('descargar', '')) else 'inline'
-        resp['Content-Disposition'] = f'{modo}; filename="comprobante_{venta.numero}.pdf"'
+
+        pdf = facturacion.pdf_comprobante(venta.pk, formato, request.META.get('HTTP_AUTHORIZATION', ''))
+        emisor = 'spring'
+        if pdf is None:
+            pdf, emisor = generar_pdf_venta(venta), 'django'
+        resp = HttpResponse(pdf, content_type='application/pdf')
+        prefijo = 'ticket' if formato == 'TICKET' and emisor == 'spring' else 'comprobante'
+        resp['Content-Disposition'] = f'{modo}; filename="{prefijo}_{venta.numero}.pdf"'
+        resp['X-Emisor'] = emisor
         return resp
 
     @extend_schema(request=AnularVentaSerializer, responses=VentaSerializer)

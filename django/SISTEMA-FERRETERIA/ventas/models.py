@@ -59,6 +59,8 @@ class Venta(models.Model):
     total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     estado = models.CharField(max_length=12, choices=ESTADOS, default='COMPLETADA')
     observacion = models.TextField(blank=True)
+    # Caja (turno) del vendedor donde entró el dinero de esta venta
+    caja = models.ForeignKey('caja.Caja', on_delete=models.PROTECT, related_name='ventas', null=True, blank=True)
     anulada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
                                     related_name='ventas_anuladas', null=True, blank=True)
     fecha_anulacion = models.DateTimeField(null=True, blank=True)
@@ -143,3 +145,20 @@ class DetallePedido(models.Model):
 
     def __str__(self):
         return f'{self.cantidad} x {self.producto}'
+
+
+class SerieComprobante(models.Model):
+    """
+    Correlativo de cada serie de comprobante (B001 boletas, F001 facturas).
+    SUNAT exige que cada serie avance de uno en uno y sin saltos: el número se toma
+    bloqueando esta fila dentro de la misma transacción de la venta.
+    """
+    serie = models.CharField(max_length=4, primary_key=True)
+    ultimo = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'serie de comprobante'
+        verbose_name_plural = 'series de comprobante'
+
+    def __str__(self):
+        return f'{self.serie} (último {self.ultimo:06d})'

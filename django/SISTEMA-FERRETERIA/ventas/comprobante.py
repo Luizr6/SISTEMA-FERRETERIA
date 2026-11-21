@@ -1,8 +1,12 @@
 """
 FER-49 / RF20 - Comprobante interno de venta (boleta simplificada) en PDF.
+
+Es el RESPALDO: el comprobante oficial del sistema lo emite el servicio de facturación en Spring Boot
+(XML UBL, hash y QR). Este PDF se entrega solo si Spring no está disponible.
 No es un comprobante electrónico SUNAT (exclusión explícita del alcance).
 """
 import io
+from xml.sax.saxutils import escape as esc  # los textos van como mini-HTML: '&' o '<' romperían el PDF
 
 from django.conf import settings
 from django.utils import timezone
@@ -79,13 +83,14 @@ def generar_pdf_venta(venta):
 
     # Cabecera: datos del negocio a la izquierda, recuadro del comprobante a la derecha
     datos_negocio = [
-        Paragraph(f'<b>{negocio["NOMBRE"]}</b>', titulo),
-        Paragraph(negocio['DIRECCION'], normal),
-        Paragraph(f'Tel.: {negocio["TELEFONO"]}', normal),
+        Paragraph(f'<b>{esc(negocio["NOMBRE"])}</b>', titulo),
+        Paragraph(esc(negocio['DIRECCION']), normal),
+        Paragraph(f'Tel.: {esc(negocio["TELEFONO"])}', normal),
     ]
     recuadro = Table([
-        [Paragraph(f'<b>RUC {negocio["RUC"]}</b>', centro)],
-        [Paragraph('<b>BOLETA DE VENTA<br/>INTERNA</b>', centro)],
+        [Paragraph(f'<b>RUC {esc(negocio["RUC"])}</b>', centro)],
+        [Paragraph('<b>FACTURA<br/>INTERNA</b>' if (venta.numero or '').startswith('F')
+                   else '<b>BOLETA DE VENTA<br/>INTERNA</b>', centro)],
         [Paragraph(f'<b>{venta.numero}</b>', centro)],
     ], colWidths=[48 * mm])
     recuadro.setStyle(TableStyle([
@@ -101,10 +106,10 @@ def generar_pdf_venta(venta):
     cliente = venta.cliente
     info = Table([
         [Paragraph('<b>Fecha:</b>', normal), Paragraph(fecha.strftime('%d/%m/%Y %H:%M'), normal),
-         Paragraph('<b>Vendedor:</b>', normal), Paragraph(venta.vendedor.get_full_name() or venta.vendedor.username, normal)],
-        [Paragraph('<b>Cliente:</b>', normal), Paragraph(cliente.nombre if cliente else 'CLIENTES VARIOS', normal),
+         Paragraph('<b>Vendedor:</b>', normal), Paragraph(esc(venta.vendedor.get_full_name() or venta.vendedor.username), normal)],
+        [Paragraph('<b>Cliente:</b>', normal), Paragraph(esc(cliente.nombre) if cliente else 'CLIENTES VARIOS', normal),
          Paragraph(f'<b>{cliente.tipo_documento if cliente else "Doc."}:</b>', normal),
-         Paragraph((cliente.numero_documento or '-') if cliente else '-', normal)],
+         Paragraph(esc(cliente.numero_documento or '-') if cliente else '-', normal)],
         [Paragraph('<b>Pago:</b>', normal), Paragraph(venta.get_metodo_pago_display(), normal),
          Paragraph('<b>Origen:</b>', normal), Paragraph(venta.get_origen_display(), normal)],
     ], colWidths=[17 * mm, ancho / 2 - 17 * mm, 18 * mm, ancho / 2 - 18 * mm])
@@ -114,7 +119,7 @@ def generar_pdf_venta(venta):
     filas = [['Cant.', 'Und.', 'Descripción', 'P. Unit.', 'Importe']]
     for d in venta.detalles.select_related('producto'):
         filas.append([str(d.cantidad), d.producto.unidad_medida,
-                      Paragraph(f'{d.producto.nombre}<br/><font size=6 color="#777777">{d.producto.codigo}</font>', normal),
+                      Paragraph(f'{esc(d.producto.nombre)}<br/><font size=6 color="#777777">{esc(d.producto.codigo)}</font>', normal),
                       f'{d.precio_unitario:,.2f}', f'{d.subtotal:,.2f}'])
     detalle = Table(filas, colWidths=[11 * mm, 11 * mm, ancho - 58 * mm, 18 * mm, 18 * mm], repeatRows=1)
     detalle.setStyle(TableStyle([
@@ -140,7 +145,7 @@ def generar_pdf_venta(venta):
     elementos = [cabecera, Spacer(1, 5 * mm), info, Spacer(1, 4 * mm), detalle, Spacer(1, 3 * mm), totales,
                  Spacer(1, 2 * mm), Paragraph(f'<b>SON:</b> {numero_a_letras(venta.total)}', normal)]
     if venta.observacion:
-        elementos += [Spacer(1, 2 * mm), Paragraph(f'<b>Obs.:</b> {venta.observacion}', normal)]
+        elementos += [Spacer(1, 2 * mm), Paragraph(f'<b>Obs.:</b> {esc(venta.observacion)}', normal)]
     if venta.estado == 'ANULADA':
         elementos += [Spacer(1, 4 * mm), Paragraph(
             f'<font color="#B00020"><b>COMPROBANTE ANULADO</b> el '

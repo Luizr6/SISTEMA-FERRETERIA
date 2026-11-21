@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Identidad FERRETERÍA C&R (misma paleta del panel web) -->
+    <color name="navy">#0F1E3D</color>
+    <color name="navy_2">#1B2D52</color>
+    <color name="navy_borde">#3A4E78</color>
+    <color name="ambar">#F59E0B</color>
+    <color name="ambar_suave">#FDE7B8</color>
+    <color name="ambar_fondo">#FFF7E6</color>
+    <color name="ambar_texto">#92400E</color>
+
+    <!-- Superficies y textos -->
+    <color name="fondo">#F5F6F8</color>
+    <color name="superficie">#FFFFFF</color>
+    <color name="chat_fondo">#EEF0F4</color>
+    <color name="texto">#111827</color>
+    <color name="texto_2">#4B5563</color>
+    <color name="texto_3">#9CA3AF</color>
+    <color name="texto_claro">#C7D2E6</color>
+    <color name="borde">#D1D5DB</color>
+    <color name="divisor">#EEF0F3</color>
+    <color name="blanco">#FFFFFF</color>
+
+    <!-- Estados -->
+    <color name="verde">#15803D</color>
+    <color name="verde_oscuro">#166534</color>
+    <color name="verde_fondo">#DCFCE7</color>
+    <color name="verde_punto">#34D399</color>
+    <color name="rojo">#B91C1C</color>
+    <color name="rojo_fondo">#FEECEC</color>
+    <color name="naranja">#D97706</color>
+
+    <!-- Chat -->
+    <color name="burbuja_bot">#DCE6F8</color>
+    <color name="burbuja_bot_texto">#1E3A8A</color>
+</resources>

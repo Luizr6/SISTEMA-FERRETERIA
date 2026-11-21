@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.core import mail
+from django.test import override_settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APITestCase
 
@@ -118,6 +119,27 @@ class Sprint6Tests(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r['Content-Type'], 'application/pdf')
         self.assertTrue(r.content.startswith(b'%PDF'))
+
+    @override_settings(FERRETERIA={'NOMBRE': 'FERRETERÍA C&R', 'RUC': '20612345678', 'DIRECCION': 'Av. <Principal> 123',
+                                   'TELEFONO': '987 654 321', 'SERIE_BOLETA': 'B001'})
+    def test_pdf_con_caracteres_especiales(self):
+        """Un nombre con '&' o '<' (FERRETERÍA C&R) no debe romper ni alterar el comprobante."""
+        self.p1.nombre = 'Llave 1/2" & codo <PVC>'
+        self.p1.save()
+        self.client.force_authenticate(self.admin)
+        v = self.client.post('/api/ventas/', {'detalles': [{'producto': self.p1.id, 'cantidad': 1}],
+                             'observacion': 'Entregar a R&R'}, format='json').data
+        r = self.client.get(f"/api/ventas/{v['id']}/comprobante/")
+        self.assertEqual(r.status_code, 200)
+        self.assertTrue(r.content.startswith(b'%PDF'))
+        # texto visible del PDF: ReportLab codifica la página en ASCII85 + zlib y escribe el texto como (...) Tj
+        import base64, re, zlib
+        pagina = b''.join(zlib.decompress(base64.a85decode(re.sub(rb'\s', b'', m)))
+                          for m in re.findall(rb'stream\r?\n(.*?)~>', r.content, re.S))
+        texto = b''.join(re.findall(rb'\(((?:\\.|[^\\)])*)\) Tj', pagina))
+        self.assertIn(b'C&R', texto)        # el nombre sale tal cual...
+        self.assertNotIn(b'C&R;', texto)    # ...y no como una entidad HTML mal leída
+        self.assertIn(b'<PVC>', texto)      # los '<' tampoco se pierden
 
     def test_dashboard_y_reportes(self):
         self.client.force_authenticate(self.admin)

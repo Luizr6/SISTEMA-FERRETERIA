@@ -21,7 +21,9 @@ import pe.tecsup.ferreteria.ms.config.FerreteriaProperties;
  * Reglas de acceso:
  * <ul>
  *   <li>POST /api/auditoria/eventos: API key de servicio (cabecera X-API-Key) o cualquier JWT válido.</li>
- *   <li>Resto de /api/**: JWT de Django con rol ADMIN (reportes gerenciales y lectura de la bitácora).</li>
+ *   <li>GET /api/comprobantes/venta/**: cualquier usuario con sesión (Administrador o Vendedor), para ver
+ *       o imprimir el comprobante de una venta.</li>
+ *   <li>Resto de /api/**: JWT de Django con rol ADMIN (reportes gerenciales, cierres y lectura de la bitácora).</li>
  * </ul>
  */
 @Component
@@ -61,7 +63,8 @@ public class AutenticacionInterceptor implements HandlerInterceptor {
             return rechazar(res, HttpStatus.UNAUTHORIZED, e.getMessage());
         }
 
-        if (!registrarEvento && !usuario.esAdmin()) {
+        boolean comprobanteDeVenta = "GET".equalsIgnoreCase(req.getMethod()) && ruta.contains("/api/comprobantes/venta/");
+        if (!registrarEvento && !comprobanteDeVenta && !usuario.esAdmin()) {
             return rechazar(res, HttpStatus.FORBIDDEN, "Esta acción es exclusiva del Administrador.");
         }
         req.setAttribute(UsuarioToken.ATRIBUTO, usuario);

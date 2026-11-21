@@ -41,7 +41,8 @@ public class AuditoriaService {
             "LOGIN_EXITOSO", "LOGIN_FALLIDO", "CONTRASENA_CAMBIADA",
             "PEDIDO_APROBADO", "PEDIDO_RECHAZADO", "VENTA_REGISTRADA", "VENTA_ANULADA",
             "PRECIO_MODIFICADO", "STOCK_AJUSTADO", "COMPRA_RECIBIDA", "IMPORTACION_CSV",
-            "REGISTRO_CREADO", "REGISTRO_EDITADO", "REGISTRO_ELIMINADO", "REPORTE_EXPORTADO");
+            "REGISTRO_CREADO", "REGISTRO_EDITADO", "REGISTRO_ELIMINADO", "REPORTE_EXPORTADO",
+            "COMPROBANTES_PROCESADOS", "CIERRE_DIARIO");
 
     /** Si el emisor no indica nivel, estos tipos se guardan como ADVERTENCIA. */
     private static final Set<String> ADVERTENCIA_POR_DEFECTO = Set.of(
@@ -103,8 +104,14 @@ public class AuditoriaService {
     /** Evento generado por el propio microservicio (por ejemplo, al exportar un PDF). */
     @Transactional
     public void registrarInterno(String tipo, String descripcion, UsuarioToken quien, String ip) {
-        EventoAuditoria e = new EventoAuditoria(tipo, NivelEvento.INFO, "MS", recortar(descripcion, 500));
-        e.setModulo("reportes");
+        registrarInterno(tipo, descripcion, quien, ip, NivelEvento.INFO, "reportes");
+    }
+
+    @Transactional
+    public void registrarInterno(String tipo, String descripcion, UsuarioToken quien, String ip,
+                                 NivelEvento nivel, String modulo) {
+        EventoAuditoria e = new EventoAuditoria(tipo, nivel, "MS", recortar(descripcion, 500));
+        e.setModulo(modulo);
         e.setUsuario(quien.username());
         e.setUsuarioId(quien.id());
         e.setIp(ip);

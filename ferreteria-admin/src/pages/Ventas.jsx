@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Ban, FileText, ReceiptText, ShoppingCart } from 'lucide-react'
+import { Ban, FileText, Printer, ReceiptText, ShoppingCart } from 'lucide-react'
 import { usuariosService, ventasService } from '../services/comercial'
 import { errorMessage, fechaHora, limpiar, METODOS_PAGO, money, ORIGENES } from '../utils/format'
 import { useAuth } from '../context/AuthContext'
@@ -163,7 +163,7 @@ export default function Ventas() {
         </section>
       )}
 
-      <Modal open={!!detalle} onClose={() => setDetalle(null)} size="lg" title={`Boleta ${detalle?.numero || ''}`}
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} size="lg" title={`${String(detalle?.numero || '').startsWith('F') ? 'Factura' : 'Boleta'} ${detalle?.numero || ''}`}
         subtitle={detalle && `${fechaHora(detalle.fecha)}, atendió ${detalle.vendedor_nombre}`}
         footer={detalle && <>
           {isAdmin && detalle.estado === 'COMPLETADA' && (
@@ -171,6 +171,9 @@ export default function Ventas() {
               <Ban className="h-4 w-4" /> Anular venta</button>
           )}
           <button className="btn-dark" onClick={() => pdf(detalle)}><FileText className="h-4 w-4" /> Ver PDF</button>
+          <button className="btn-secondary" onClick={() => ventasService.abrirComprobante(detalle.id, detalle.numero, 'TICKET')
+            .catch((e) => toast(errorMessage(e), 'error'))}><Printer className="h-4 w-4" /> Ticket</button>
+
         </>}>
         {detalle && (
           <div>

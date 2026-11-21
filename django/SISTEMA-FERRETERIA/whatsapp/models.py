@@ -10,6 +10,12 @@ class Conversacion(models.Model):
     ultimo_mensaje = models.DateTimeField(null=True, blank=True)
     no_leidos = models.PositiveIntegerField(default=0)
     bot_activo = models.BooleanField(default=True, help_text='Si es False, solo responden personas.')
+    # Pedido que el cliente va armando con el bot y que aún NO confirmó: {"items": {"COD": 2}, ...}
+    carrito = models.JSONField(default=dict, blank=True)
+    # El cliente pidió hablar con una persona: cuándo (se limpia cuando un vendedor responde)
+    asesor_solicitado = models.DateTimeField(null=True, blank=True)
+    # True = el bot se pausó solo porque pidieron asesor; se reactiva si nadie responde en 15 minutos
+    pausa_automatica = models.BooleanField(default=False)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -36,6 +42,7 @@ class Mensaje(models.Model):
         ('ESTADO', 'Estado de pedido'),
         ('DESCONOCIDA', 'No reconocida'),
         ('MANUAL', 'Respuesta manual del vendedor'),
+        ('ASESOR', 'Pidió hablar con un asesor'),
     )
 
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name='mensajes')

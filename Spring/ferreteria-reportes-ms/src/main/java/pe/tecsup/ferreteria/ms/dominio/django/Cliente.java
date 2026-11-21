@@ -19,10 +19,18 @@ public class Cliente {
     @Column(nullable = false)
     private String nombre;
 
+    /** DNI | RUC | CE | OTRO */
+    @Column(name = "tipo_documento")
+    private String tipoDocumento;
+
     @Column(name = "numero_documento")
     private String numeroDocumento;
 
+    private String direccion;
+
     public Long getId() { return id; }
     public String getNombre() { return nombre; }
+    public String getTipoDocumento() { return tipoDocumento; }
     public String getNumeroDocumento() { return numeroDocumento; }
+    public String getDireccion() { return direccion; }
 }

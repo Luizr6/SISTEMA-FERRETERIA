@@ -15,6 +15,9 @@ export async function login(username, password) {
 }
 
 export function logout() {
+  // Anula el refresh en el servidor (sesión de 30 días); si falla, igual se cierra aquí
+  const refresh = storage.refresh
+  if (refresh) api.post('/auth/logout/', { refresh }).catch(() => {})
   storage.clear()
 }
 

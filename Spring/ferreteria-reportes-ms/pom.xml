@@ -15,13 +15,15 @@
     <artifactId>ferreteria-reportes-ms</artifactId>
     <version>0.1.0</version>
     <name>ferreteria-reportes-ms</name>
-    <description>Microservicio de reportes gerenciales (JSON/PDF) y auditoría del SISTEMA-FERRETERIA</description>
+    <description>Microservicio de facturación (comprobantes), reportes gerenciales (JSON/PDF/Excel), procesos programados y auditoría del SISTEMA-FERRETERIA</description>
 
     <properties>
         <java.version>17</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <openpdf.version>1.3.30</openpdf.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <zxing.version>3.5.3</zxing.version>
+        <poi.version>5.2.5</poi.version>
     </properties>
 
     <dependencies>
@@ -74,6 +76,20 @@
             <groupId>com.github.librepdf</groupId>
             <artifactId>openpdf</artifactId>
             <version>${openpdf.version}</version>
+        </dependency>
+
+        <!-- Código QR de los comprobantes (formato SUNAT) -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>${zxing.version}</version>
+        </dependency>
+
+        <!-- Exportación de reportes a Excel (.xlsx) -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
 
         <!-- Documentación Swagger en /swagger-ui.html -->

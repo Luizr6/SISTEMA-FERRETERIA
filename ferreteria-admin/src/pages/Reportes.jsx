@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { reportesService } from '../services/comercial'
+import { reportesService, reportesPdfService } from '../services/comercial'
 import { fecha, fechaCorta, limpiar, money, numero } from '../utils/format'
 import PageHeader from '../components/ui/PageHeader'
 import Spinner, { Vacio } from '../components/ui/Spinner'
@@ -8,6 +8,9 @@ import Badge from '../components/ui/Badge'
 import { Pestanas } from '../components/ui/Filtros'
 import useCarga from '../hooks/useCarga'
 import { useColoresGrafico } from '../context/TemaContext'
+import {
+  CajasGerencial, CierresGerencial, ComprobantesGerencial, EstadoSpring, KardexGerencial, VentasGerencial,
+} from './ReportesGerenciales'
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'set', 'oct', 'nov', 'dic']
 const etiqueta = (p, agrupar) => {
@@ -116,12 +119,43 @@ function Margen() {
   )
 }
 
+async function descargarPdf(pedir, nombre) {
+  try {
+    const { data } = await pedir()
+    const url = URL.createObjectURL(data)
+    const enlace = document.createElement('a')
+    enlace.href = url
+    enlace.download = nombre
+    enlace.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60000)
+  } catch {
+    window.alert('No se pudo descargar el PDF. Revisa que el servicio de reportes esté encendido y que tu usuario sea Administrador.')
+  }
+}
+
+const SECCIONES = [
+  ['resumen', 'Ventas y margen'], ['gerencial', 'Ventas por rango'], ['cajas', 'Arqueos de caja'],
+  ['kardex', 'Kardex'], ['comprobantes', 'Comprobantes'], ['cierres', 'Cierres del día'],
+]
+
 export default function Reportes() {
+  const [seccion, setSeccion] = useState('resumen')
   return (
     <>
-      <PageHeader title="Reportes" subtitle="Cómo van las ventas y cuánto deja cada producto. Montos sin IGV en el margen." />
-      <VentasPeriodo />
-      <Margen />
+      <PageHeader title="Reportes" subtitle="Ventas, cajas, inventario y comprobantes. Las secciones nuevas las genera el servicio de Spring Boot.">
+        <EstadoSpring />
+        <button className="btn-secondary" onClick={() => descargarPdf(reportesPdfService.ventasDia, 'ventas-del-dia.pdf')}>PDF ventas del día</button>
+        <button className="btn-secondary" onClick={() => descargarPdf(reportesPdfService.stockCritico, 'stock-critico.pdf')}>PDF stock crítico</button>
+      </PageHeader>
+      <div className="mb-4 overflow-x-auto">
+        <Pestanas valor={seccion} onChange={setSeccion} opciones={SECCIONES} />
+      </div>
+      {seccion === 'resumen' && <><VentasPeriodo /><Margen /></>}
+      {seccion === 'gerencial' && <VentasGerencial />}
+      {seccion === 'cajas' && <CajasGerencial />}
+      {seccion === 'kardex' && <KardexGerencial />}
+      {seccion === 'comprobantes' && <ComprobantesGerencial />}
+      {seccion === 'cierres' && <CierresGerencial />}
     </>
   )
 }

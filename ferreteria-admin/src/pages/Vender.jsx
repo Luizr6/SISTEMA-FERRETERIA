@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  CheckCircle2, ClipboardList, FileText, Loader2, Minus, PackageSearch, Plus, Trash2, UserPlus,
+  CheckCircle2, ClipboardList, FileText, Loader2, Minus, PackageSearch, Plus, Printer, Trash2, UserPlus, Wallet,
 } from 'lucide-react'
-import { productosService } from '../services/catalogo'
-import { carritoService, clientesService, ventasService } from '../services/comercial'
+import { categoriasService, productosService } from '../services/catalogo'
+import { cajaService, carritoService, clientesService, ventasService } from '../services/comercial'
 import { errorMessage, METODOS_PAGO, money } from '../utils/format'
 import { useToast } from '../components/ui/Toast'
 import { useAvisos } from '../context/AvisosContext'
@@ -23,14 +23,21 @@ export default function Vender() {
   const toast = useToast()
   const avisos = useAvisos()
   const [busqueda, setBusqueda] = useState('')
+  const [categoria, setCategoria] = useState('')
   const [carrito, setCarrito] = useState(null)
   const [ocupado, setOcupado] = useState(false)
   const [venta, setVenta] = useState({ cliente: '', metodo_pago: 'EFECTIVO', observacion: '' })
   const [nuevoCliente, setNuevoCliente] = useState(false)
   const [listo, setListo] = useState(null) // {tipo:'venta'|'pedido', dato}
+  // Caja del vendedor: sin caja abierta no se puede cobrar (sí guardar como pedido)
+  const [caja, setCaja] = useState(undefined)
+  useEffect(() => { cajaService.actual().then(setCaja).catch(() => setCaja(null)) }, [])
 
   const { data: productos, recargar: recargarProductos } = useCarga(
-    () => productosService.listar({ activo: true, search: busqueda || undefined }), [busqueda], { retraso: 200, inicial: null })
+    () => productosService.listar({ activo: true, search: busqueda || undefined, categoria: categoria || undefined }),
+    [busqueda, categoria], { retraso: 200, inicial: null })
+  const { data: categorias } = useCarga(() => categoriasService.listar(), [], { inicial: [] })
+  const categoriasConProductos = (categorias || []).filter((c) => c.total_productos > 0)
   const { data: clientes, setData: setClientes } = useCarga(() => clientesService.listar({ activo: true }), [], { inicial: [] })
 
   useEffect(() => {
@@ -86,15 +93,49 @@ export default function Vender() {
 
   return (
     <>
-      <PageHeader title="Vender" subtitle="Busca, agrega y cobra. El stock se descuenta al confirmar la venta." />
+      <PageHeader title="Vender" subtitle="Busca, agrega y cobra. El stock se descuenta al confirmar la venta.">
+        {caja && (
+          <Link to="/caja" className="flex items-center gap-2 rounded-full border border-gris-200 bg-superficie px-3 py-1.5 text-[13px] font-semibold text-gris-700 hover:border-gris-300">
+            <span className="h-2 w-2 rounded-full bg-exito-500" /> Caja abierta · {new Date(caja.fecha_apertura).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+          </Link>
+        )}
+      </PageHeader>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_400px]">
+      {caja === null && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-panel border border-aviso-500/30 bg-aviso-50 px-4 py-3">
+          <p className="flex items-center gap-2 text-sm font-medium text-aviso-700">
+            <Wallet className="h-4 w-4 shrink-0" /> Tu caja está cerrada. Ábrela para poder cobrar (puedes guardar pedidos igual).
+          </p>
+          <Link to="/caja" className="btn-primary">Abrir caja</Link>
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
         {/* Catálogo */}
-        <section>
+        <section className="min-w-0">
           <Buscador value={busqueda} onChange={setBusqueda} placeholder="Busca por nombre, código o marca" />
+          {categoriasConProductos.length > 0 && (
+            <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1 lg:flex-wrap lg:overflow-visible" role="tablist" aria-label="Categorías">
+              {[{ id: '', nombre: 'Todas' }, ...categoriasConProductos].map((c) => {
+                const activa = String(categoria) === String(c.id)
+                return (
+                  <button key={c.id || 'todas'} role="tab" aria-selected={activa} onClick={() => setCategoria(c.id)}
+                    className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-[13px] font-semibold transition ${
+                      activa ? 'border-acento-600 bg-acento-600 text-white'
+                        : 'border-gris-200 bg-superficie text-gris-600 hover:border-gris-300 hover:text-gris-900'}`}>
+                    {c.nombre}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           <div className="mt-3">
             {productos === null ? <Spinner /> : productos.length === 0 ? (
-              <div className="panel"><Vacio icon={PackageSearch} titulo="Nada con ese nombre" texto="Prueba con el código o con otra palabra." /></div>
+              <div className="panel">
+                {categoria && !busqueda
+                  ? <Vacio icon={PackageSearch} titulo="Sin productos en esta categoría" texto="Elige otra categoría o busca por nombre." />
+                  : <Vacio icon={PackageSearch} titulo="Nada con ese nombre" texto={categoria ? 'No está en esta categoría. Prueba en "Todas".' : 'Prueba con el código o con otra palabra.'} />}
+              </div>
             ) : (
               <ul className="grid gap-2 sm:grid-cols-2">
                 {productos.map((p) => {
@@ -208,8 +249,9 @@ export default function Vender() {
 
                 {carrito.alertas.length > 0 && <Aviso tono="aviso">{carrito.alertas.join(' ')}</Aviso>}
 
-                <button className="btn-primary w-full py-3 text-base" disabled={ocupado || !carrito.puede_confirmar} onClick={cobrar}>
-                  Cobrar {money(carrito.total)}
+                <button className="btn-primary w-full py-3 text-base" disabled={ocupado || !carrito.puede_confirmar || caja === null}
+                  onClick={cobrar} title={caja === null ? 'Abre tu caja para cobrar' : undefined}>
+                  {caja === null ? 'Abre tu caja para cobrar' : `Cobrar ${money(carrito.total)}`}
                 </button>
                 <div className="flex gap-2">
                   <button className="btn-secondary flex-1" disabled={ocupado} onClick={guardarPedido}
@@ -250,11 +292,15 @@ export default function Vender() {
             {listo.tipo === 'venta' ? (
               <>
                 <p className="mt-3 text-2xl font-semibold text-gris-900">{money(listo.dato.total)}</p>
-                <p className="text-sm text-gris-600">Boleta {listo.dato.numero}, pagada con {listo.dato.metodo_pago_display.toLowerCase()}.</p>
+                <p className="text-sm text-gris-600">{String(listo.dato.numero).startsWith('F') ? 'Factura' : 'Boleta'} {listo.dato.numero}, pagada con {listo.dato.metodo_pago_display.toLowerCase()}.</p>
                 <div className="mt-5 flex flex-col gap-2">
                   <button className="btn-dark" onClick={() => ventasService.abrirComprobante(listo.dato.id, listo.dato.numero)
                     .catch((e) => toast(errorMessage(e), 'error'))}>
                     <FileText className="h-4 w-4" /> Ver comprobante PDF
+                  </button>
+                  <button className="btn-secondary" onClick={() => ventasService.abrirComprobante(listo.dato.id, listo.dato.numero, 'TICKET')
+                    .catch((e) => toast(errorMessage(e), 'error'))}>
+                    <Printer className="h-4 w-4" /> Imprimir ticket (80 mm)
                   </button>
                   <button className="btn-primary" onClick={() => setListo(null)}>Nueva venta</button>
                 </div>

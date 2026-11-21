@@ -63,6 +63,16 @@ public class Venta {
     @JoinColumn(name = "cliente_id")
     private Cliente cliente;
 
+    /** Caja del vendedor donde entró el cobro (null en ventas anteriores a la caja). */
+    @Column(name = "caja_id")
+    private Long cajaId;
+
+    @Column(name = "fecha_anulacion")
+    private Instant fechaAnulacion;
+
+    @Column(name = "motivo_anulacion")
+    private String motivoAnulacion;
+
     @OneToMany(mappedBy = "venta", fetch = FetchType.LAZY)
     private List<DetalleVenta> detalles = new ArrayList<>();
 
@@ -78,6 +88,9 @@ public class Venta {
     public Usuario getVendedor() { return vendedor; }
     public Cliente getCliente() { return cliente; }
     public List<DetalleVenta> getDetalles() { return detalles; }
+    public Long getCajaId() { return cajaId; }
+    public Instant getFechaAnulacion() { return fechaAnulacion; }
+    public String getMotivoAnulacion() { return motivoAnulacion; }
 
     public boolean esCompletada() {
         return "COMPLETADA".equals(estado);

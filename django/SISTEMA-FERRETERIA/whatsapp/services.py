@@ -1,10 +1,10 @@
-"""Orquestación: mensaje entrante -> guardar -> bot -> responder (CU14-CU16)."""
+"""Orquestación: mensaje entrante -> guardar -> bot (IA o reglas) -> responder (CU14-CU16)."""
 from django.db import IntegrityError, transaction
 from django.db.models import F
 from django.utils import timezone
 
 from ventas.models import Cliente
-from . import bot, cliente_meta
+from . import bot_ia, cliente_meta, horario
 from .models import Conversacion, Mensaje
 
 
@@ -27,7 +27,11 @@ def enviar(conversacion, texto, *, intencion='MANUAL', pedido=None, usuario=None
     msg = Mensaje.objects.create(conversacion=conversacion, direccion='SALIENTE', texto=texto,
                                  wa_message_id=wa_id, intencion=intencion, estado_envio=estado,
                                  error=error, pedido=pedido, enviado_por=usuario)
-    Conversacion.objects.filter(pk=conversacion.pk).update(ultimo_mensaje=timezone.now())
+    cambios = {'ultimo_mensaje': timezone.now()}
+    if usuario is not None:
+        # Respondió una persona: el pedido de asesor quedó atendido y la pausa ya no se levanta sola
+        cambios.update(asesor_solicitado=None, pausa_automatica=False)
+    Conversacion.objects.filter(pk=conversacion.pk).update(**cambios)
     return msg
 
 
@@ -44,10 +48,33 @@ def procesar_entrante(*, telefono, texto, nombre='', wa_message_id=None):
             return None, None
         Conversacion.objects.filter(pk=conv.pk).update(ultimo_mensaje=timezone.now(), no_leidos=F('no_leidos') + 1)
 
+    conv.refresh_from_db(fields=['bot_activo', 'pausa_automatica', 'asesor_solicitado'])
+    ahora = timezone.now()
+
+    # Se pausó solo porque pidieron asesor y nadie respondió en 15 minutos: el bot vuelve a atender
+    if horario.debe_reactivar(conv, ahora):
+        conv.bot_activo, conv.pausa_automatica = True, False
+        conv.save(update_fields=['bot_activo', 'pausa_automatica'])
+
     if not conv.bot_activo:
         return entrante, None
 
-    resp = bot.interpretar(texto, telefono=telefono, nombre=nombre or conv.nombre)
+    # El cliente pide hablar con una persona
+    if horario.pide_asesor(texto):
+        atiende = horario.en_horario(ahora)
+        conv.asesor_solicitado = ahora
+        campos = ['asesor_solicitado']
+        if atiende:  # dentro del horario: el bot se calla y espera al vendedor
+            conv.bot_activo, conv.pausa_automatica = False, True
+            campos += ['bot_activo', 'pausa_automatica']
+        conv.save(update_fields=campos)
+        entrante.intencion = 'ASESOR'
+        entrante.save(update_fields=['intencion'])
+        return entrante, enviar(conv, horario.mensaje_asesor(atiende), intencion='ASESOR')
+
+    # IA si hay GROQ_API_KEY (entiende lenguaje natural); si no o si falla, el bot por reglas
+    resp = bot_ia.responder(texto, telefono=telefono, nombre=nombre or conv.nombre,
+                            conversacion=conv, excluir_id=entrante.pk)
     entrante.intencion = resp.intencion
     entrante.pedido = resp.pedido
     entrante.save(update_fields=['intencion', 'pedido'])

@@ -1,6 +1,6 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenBlacklistView, TokenRefreshView
 
 from .views import (
     LoginView, MeView, PasswordChangeView, PasswordResetConfirmView, PasswordResetView, UsuarioViewSet,
@@ -12,6 +12,8 @@ router.register(r'usuarios', UsuarioViewSet, basename='usuario')
 urlpatterns = [
     path('auth/login/', LoginView.as_view(), name='login'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    # Cerrar sesión: anula el refresh para que no pueda volver a usarse
+    path('auth/logout/', TokenBlacklistView.as_view(), name='logout'),
     path('auth/me/', MeView.as_view(), name='me'),
     path('auth/password/reset/', PasswordResetView.as_view(), name='password_reset'),
     path('auth/password/reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),

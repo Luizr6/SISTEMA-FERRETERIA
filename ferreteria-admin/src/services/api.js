@@ -28,6 +28,21 @@ api.interceptors.request.use((config) => {
 // 2) Response: si el access token venció (401) intenta renovarlo con el refresh token
 let refreshing = null
 
+/**
+ * Renueva el access con el refresh guardado. Con la sesión de 30 días Django devuelve también un
+ * refresh nuevo y anula el anterior, así que todas las renovaciones pasan por aquí (una a la vez).
+ */
+export async function renovarSesion() {
+  refreshing ??= axios
+    .post(`${BASE_URL}/auth/refresh/`, { refresh: storage.refresh })
+    .then(({ data }) => {
+      storage.setTokens({ access: data.access, refresh: data.refresh })
+      return data.access
+    })
+    .finally(() => { refreshing = null })
+  return refreshing
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -38,12 +53,8 @@ api.interceptors.response.use(
     if (status === 401 && !original._retry && !esAuth && storage.refresh) {
       original._retry = true
       try {
-        refreshing ??= axios
-          .post(`${BASE_URL}/auth/refresh/`, { refresh: storage.refresh })
-          .finally(() => { refreshing = null })
-        const { data } = await refreshing
-        storage.setTokens({ access: data.access, refresh: data.refresh })
-        original.headers.Authorization = `Bearer ${data.access}`
+        const access = await renovarSesion()
+        original.headers.Authorization = `Bearer ${access}`
         return api(original)
       } catch {
         // refresh inválido o vencido -> cerrar sesión

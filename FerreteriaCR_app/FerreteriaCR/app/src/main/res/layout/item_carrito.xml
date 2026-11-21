@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/txtNombre"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/texto"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/txtPrecio"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/texto_2"
+            android:textSize="12sp" />
+
+        <TextView
+            android:id="@+id/txtAviso"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="@color/rojo"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btnMenos"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_stepper"
+        android:contentDescription="Quitar uno"
+        android:src="@drawable/ic_remove"
+        app:tint="@color/navy" />
+
+    <TextView
+        android:id="@+id/txtCantidad"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="34dp"
+        android:gravity="center"
+        android:textColor="@color/texto"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <ImageButton
+        android:id="@+id/btnMas"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_stepper"
+        android:backgroundTint="@color/ambar"
+        android:contentDescription="Agregar uno"
+        android:src="@drawable/ic_add"
+        app:tint="@color/navy" />
+
+    <TextView
+        android:id="@+id/txtSubtotal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:minWidth="84dp"
+        android:gravity="end"
+        android:textColor="@color/navy"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+</LinearLayout>

@@ -10,7 +10,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from productos.models import MovimientoInventario, Producto
-from .models import CarritoItem, DetallePedido, DetalleVenta, Pedido, Venta
+from .models import CarritoItem, DetallePedido, DetalleVenta, Pedido, SerieComprobante, Venta
 
 IGV = Decimal(str(getattr(settings, 'IGV_TASA', '0.18')))
 CENT = Decimal('0.01')
@@ -32,6 +32,60 @@ def _agrupar(detalles):
     for d in detalles:
         cantidades[d['producto'].pk] = cantidades.get(d['producto'].pk, 0) + d['cantidad']
     return cantidades
+
+
+# ---------------------------------------------------------------------------
+# Comprobante: tipo, reglas de SUNAT y numeración
+# ---------------------------------------------------------------------------
+def _es_factura(cliente):
+    """Cliente con RUC -> factura (F001); el resto -> boleta (B001)."""
+    return cliente is not None and cliente.tipo_documento == 'RUC' and bool(cliente.numero_documento)
+
+
+def validar_comprobante(cliente, total):
+    """
+    Reglas de SUNAT para emitir el comprobante:
+    - Factura: el cliente debe tener RUC de 11 dígitos, razón social y dirección.
+    - Boleta mayor a S/ 700: hay que identificar al comprador (DNI, CE o RUC).
+    """
+    if _es_factura(cliente):
+        faltan = []
+        ruc = (cliente.numero_documento or '').strip()
+        if not (ruc.isdigit() and len(ruc) == 11):
+            faltan.append('un RUC de 11 dígitos')
+        if not (cliente.nombre or '').strip():
+            faltan.append('la razón social')
+        if not (cliente.direccion or '').strip():
+            faltan.append('la dirección')
+        if faltan:
+            raise serializers.ValidationError({'cliente': (
+                f'Para emitir factura a "{cliente.nombre}" falta {" y ".join(faltan)}. '
+                'Complétalo en Clientes y vuelve a cobrar.')})
+        return
+    limite = Decimal(str(settings.FERRETERIA.get('BOLETA_LIMITE_SIN_DNI', '700')))
+    identificado = cliente is not None and bool((cliente.numero_documento or '').strip())
+    if total > limite and not identificado:
+        raise serializers.ValidationError({'cliente': (
+            f'Las boletas de más de S/ {limite:.2f} deben llevar el DNI del cliente (norma de SUNAT). '
+            'Elige o registra al cliente con su documento.')})
+
+
+def siguiente_numero(serie):
+    """Siguiente número de la serie, sin saltos. Bloquea la fila de la serie hasta que termine la venta."""
+    fila = SerieComprobante.objects.select_for_update().filter(serie=serie).first()
+    if fila is None:
+        # Primera vez: continúa después del número más alto ya usado con esa serie
+        ultimo = 0
+        for numero in Venta.objects.filter(numero__startswith=f'{serie}-').values_list('numero', flat=True):
+            try:
+                ultimo = max(ultimo, int(numero.split('-', 1)[1]))
+            except (IndexError, ValueError):
+                pass
+        SerieComprobante.objects.get_or_create(serie=serie, defaults={'ultimo': ultimo})
+        fila = SerieComprobante.objects.select_for_update().get(serie=serie)
+    fila.ultimo += 1
+    fila.save(update_fields=['ultimo'])
+    return f'{serie}-{fila.ultimo:06d}'
 
 
 # ---------------------------------------------------------------------------
@@ -62,8 +116,12 @@ def registrar_venta(*, vendedor, cliente, detalles, observacion='', metodo_pago=
     if errores:
         raise serializers.ValidationError({'detalles': errores})
 
+    # La venta entra en la caja abierta de quien cobra (si es obligatoria y no la abrió, no se cobra)
+    from caja.services import caja_para_venta
+    caja = caja_para_venta(vendedor)
+
     venta = Venta.objects.create(vendedor=vendedor, cliente=cliente, observacion=observacion,
-                                 metodo_pago=metodo_pago, origen=origen)
+                                 metodo_pago=metodo_pago, origen=origen, caja=caja)
 
     for pk, cantidad in cantidades.items():
         p = productos[pk]
@@ -76,8 +134,10 @@ def registrar_venta(*, vendedor, cliente, detalles, observacion='', metodo_pago=
 
     venta.subtotal, venta.igv, venta.total = calcular_totales(
         [(productos[pk].precio_venta, c) for pk, c in cantidades.items()])
-    serie = settings.FERRETERIA.get('SERIE_BOLETA', 'B001')
-    venta.numero = f'{serie}-{venta.pk:06d}'
+    factura = _es_factura(cliente)
+    validar_comprobante(cliente, venta.total)   # si no cumple, la transacción se deshace entera
+    serie = settings.FERRETERIA.get('SERIE_FACTURA' if factura else 'SERIE_BOLETA', 'F001' if factura else 'B001')
+    venta.numero = siguiente_numero(serie)
     venta.save(update_fields=['subtotal', 'igv', 'total', 'numero'])
 
     for pk, cantidad in cantidades.items():

@@ -13,6 +13,7 @@ import re
 import unicodedata
 from dataclasses import dataclass, field
 
+from django.conf import settings
 from django.db.models import Q
 
 from productos.models import Producto
@@ -30,15 +31,13 @@ PALABRAS_VACIAS = {
 SALUDOS = ('hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'menu', 'ayuda', 'inicio')
 VERBOS_PEDIDO = ('quiero', 'pedido', 'pedir', 'comprar', 'quisiera', 'necesito', 'separar', 'reservar')
 
-AYUDA = (
-    '¡Hola! Soy el asistente de la ferretería 🛠️\n'
-    'Puedes escribirme, por ejemplo:\n'
-    '• *precio martillo*\n'
-    '• *stock taladro*\n'
-    '• *pedido 2 MAR-001, 1 PIN-001* (usa los códigos que te envío)\n'
-    '• *estado P-000012*\n'
-    'Un vendedor confirma cada pedido antes de separarlo.'
-)
+def _tienda():
+    return settings.FERRETERIA['NOMBRE'].title()  # "FERRETERÍA C&R" -> "Ferretería C&R"
+
+
+def _ayuda():
+    return (f'¡Hola! Bienvenido a {_tienda()}. ¿Qué producto está buscando?\n'
+            'Puede escribirme el nombre, por ejemplo: cemento, clavos o pintura.')
 
 
 @dataclass
@@ -59,13 +58,9 @@ def _precio_con_igv(producto):
 
 
 def _linea_producto(p):
-    if p.stock_actual == 0:
-        disp = 'agotado ❌'
-    elif p.stock_actual <= p.stock_minimo:
-        disp = f'quedan pocas unidades ({p.stock_actual}) ⚠️'
-    else:
-        disp = f'disponible ({p.stock_actual}) ✅'
-    return f'• *{p.nombre}* [{p.codigo}] - S/ {_precio_con_igv(p)} inc. IGV - {disp}'
+    # No se muestra la cantidad exacta de stock al cliente (dato interno de la tienda)
+    disp = 'agotado por ahora' if p.stock_actual <= 0 else 'disponible'
+    return f'• *{p.nombre}*: S/ {_precio_con_igv(p)} ({disp}) · cód. {p.codigo}'
 
 
 def buscar_productos(texto, limite=5):
@@ -111,12 +106,12 @@ def interpretar(texto, *, telefono='', nombre=''):
     if m and ('estado' in norm or 'mi pedido' in norm):
         pedido = Pedido.objects.filter(numero=f'P-{int(m.group(1)):06d}', contacto_telefono=telefono).first()
         if pedido is None:
-            return Respuesta('No encontré ese pedido asociado a tu número. Revisa el código, por favor.', 'ESTADO')
-        estados = {'PENDIENTE': 'está *pendiente* de confirmación por un vendedor ⏳',
-                   'APROBADO': 'fue *confirmado* ✅. Ya puedes recogerlo en tienda.',
-                   'RECHAZADO': f'fue *rechazado* ❌ ({pedido.motivo_rechazo})',
-                   'CANCELADO': 'fue *cancelado*.'}
-        return Respuesta(f'Tu pedido {pedido.numero} {estados[pedido.estado]}', 'ESTADO', pedido=pedido)
+            return Respuesta('No encuentro ese pedido asociado a su número. ¿Podría revisar el número, por favor?', 'ESTADO')
+        estados = {'PENDIENTE': 'está pendiente: un asesor lo está revisando y le confirmará por aquí.',
+                   'APROBADO': 'ya fue confirmado. Puede pasar a recogerlo y pagarlo en tienda.',
+                   'RECHAZADO': f'no pudo ser atendido ({pedido.motivo_rechazo}).',
+                   'CANCELADO': 'fue cancelado.'}
+        return Respuesta(f'Su pedido *{pedido.numero}* {estados[pedido.estado]}', 'ESTADO', pedido=pedido)
 
     # Intención de compra con códigos
     if any(v in norm for v in VERBOS_PEDIDO):
@@ -125,8 +120,8 @@ def interpretar(texto, *, telefono='', nombre=''):
             productos = {p.codigo: p for p in Producto.objects.filter(activo=True, codigo__in=[c for c, _ in items])}
             faltan = [c for c, _ in items if c not in productos]
             if faltan:
-                return Respuesta(f'No encontré estos códigos: {", ".join(faltan)}. '
-                                 'Escribe *precio <producto>* para ver los códigos correctos.', 'PEDIDO')
+                return Respuesta(f'No encuentro estos códigos: {", ".join(faltan)}. '
+                                 'Escríbame el nombre del producto y le paso los correctos.', 'PEDIDO')
             pedido = ventas_services.crear_pedido(
                 detalles=[{'producto': productos[c], 'cantidad': n} for c, n in items],
                 origen='WHATSAPP', contacto_nombre=nombre or telefono, contacto_telefono=telefono,
@@ -135,29 +130,30 @@ def interpretar(texto, *, telefono='', nombre=''):
             lineas = '\n'.join(f'• {d.cantidad} x {d.producto.nombre}' for d in pedido.detalles.select_related('producto'))
             avisos = [d.producto.nombre for d in pedido.detalles.select_related('producto')
                       if d.cantidad > d.producto.stock_actual]
-            aviso = (f'\n⚠️ Ojo: no hay stock suficiente de {", ".join(avisos)}; el vendedor te contactará.'
+            aviso = (f'\nDe {", ".join(avisos)} el asesor le confirmará cuántas unidades tenemos.'
                      if avisos else '')
             return Respuesta(
-                f'📝 Registré tu pedido *{pedido.numero}*:\n{lineas}\n'
-                f'Total estimado: *S/ {pedido.total_estimado}* (inc. IGV).{aviso}\n'
-                'Un vendedor lo revisará y te confirmará. Consulta con: *estado ' + pedido.numero + '*',
+                f'Listo, su pedido *{pedido.numero}* quedó registrado:\n{lineas}\n'
+                f'Total estimado: S/ {pedido.total_estimado} (incluye IGV).{aviso}\n'
+                'En breve un asesor lo revisa y le confirma. El pago y el recojo son en tienda.',
                 'PEDIDO', pedido=pedido)
         productos = buscar_productos(norm)
         if productos:
-            return Respuesta('Para registrar tu pedido necesito el código y la cantidad. Encontré:\n' +
+            return Respuesta('Con gusto. Para registrar su pedido necesito el código y la cantidad:\n' +
                              '\n'.join(_linea_producto(p) for p in productos) +
-                             f'\nEjemplo: *pedido 2 {productos[0].codigo}*', 'PEDIDO', productos=productos)
+                             f'\nPor ejemplo, escriba: *pedido 2 {productos[0].codigo}*', 'PEDIDO', productos=productos)
 
     # Saludo / ayuda
     if any(norm == s or norm.startswith(s + ' ') or norm.startswith(s + ',') for s in SALUDOS) and \
             len(norm.split()) <= 4:
-        return Respuesta(AYUDA, 'SALUDO')
+        return Respuesta(_ayuda(), 'SALUDO')
 
     # Consulta de producto / precio / stock
     productos = buscar_productos(norm)
     if productos:
-        return Respuesta('Esto encontré 🔎\n' + '\n'.join(_linea_producto(p) for p in productos) +
-                         '\nPara pedir escribe: *pedido <cantidad> <código>*', 'CONSULTA', productos=productos)
+        return Respuesta('Sí, tenemos estas opciones:\n' + '\n'.join(_linea_producto(p) for p in productos) +
+                         f'\nPara hacer su pedido escriba la cantidad y el código, por ejemplo: '
+                         f'*pedido 2 {productos[0].codigo}*', 'CONSULTA', productos=productos)
 
-    return Respuesta('No logré entender tu mensaje 🤔. ¿Puedes escribirlo de otra forma?\n'
-                     'Ejemplos: *precio martillo*, *stock pintura*, *pedido 2 MAR-001*.', 'DESCONOCIDA')
+    return Respuesta('Disculpe, no logré entender su mensaje. ¿Qué producto está buscando?\n'
+                     'Puede escribirme el nombre, por ejemplo: cemento, clavos o pintura.', 'DESCONOCIDA')

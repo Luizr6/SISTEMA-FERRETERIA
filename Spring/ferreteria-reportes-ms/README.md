@@ -1,11 +1,31 @@
-# ferreteria-reportes-ms: microservicio Spring Boot
+# ferreteria-reportes-ms: servicio de facturación, reportes y auditoría (Spring Boot)
 
-Microservicio complementario del SISTEMA-FERRETERIA. **Django sigue siendo el núcleo y la única fuente de verdad.**
-Este servicio solo:
+El SISTEMA-FERRETERIA reparte el trabajo entre dos backends:
 
-1. **Reportes gerenciales:** lee (sin modificar) las tablas de Django en PostgreSQL y genera reportes en JSON y PDF.
-2. **Auditoría independiente:** guarda eventos en su **propia tabla** `ms_evento_auditoria` (login fallido,
-   cambio de precio, aprobación de pedidos, etc.) y detecta varios intentos fallidos seguidos.
+| Django (:8000) | Spring Boot (:8081) |
+|---|---|
+| Núcleo transaccional: ventas, stock, pedidos, caja, usuarios | **Facturación**: emite el comprobante electrónico de cada venta |
+| WhatsApp e IA | **Reportes gerenciales** en JSON, PDF y Excel |
+| Login (emite el JWT) | **Procesos programados**: facturación automática y cierre del día |
+| | **Auditoría** independiente |
+
+Spring **lee** las tablas de Django sin modificarlas y **escribe solo en sus tablas** (prefijo `ms_`):
+
+1. **Facturación (`ms_comprobante`):** por cada venta arma el XML en formato **UBL 2.1** (estándar SUNAT),
+   calcula el **código hash** (SHA-256), genera el **código QR** y la representación impresa en **A5** o
+   **ticket de 80 mm** para la impresora térmica. Boleta (03) o factura (01) si el cliente tiene RUC.
+   Cuando una venta se anula en Django, el comprobante queda dado de baja. *Simulado:* no se firma con
+   certificado digital ni se envía a SUNAT.
+2. **Reportes:** ventas por rango (por día, vendedor, categoría, forma de pago y canal), arqueos de caja con
+   faltantes por vendedor, kardex por producto y stock crítico. Exporta a PDF (OpenPDF) y Excel (Apache POI).
+3. **Procesos programados (`@Scheduled`):** cada minuto emite los comprobantes pendientes; a las 23:00 genera el
+   **cierre del día** (`ms_cierre_diario`) con alertas: cajas sin cerrar, faltantes, productos agotados.
+4. **Auditoría (`ms_evento_auditoria`):** login fallido, cambio de precio, aprobación de pedidos, etc.,
+   y detecta varios intentos fallidos seguidos.
+
+La serie y el número del comprobante los pone Django al registrar la venta. Así una venta nunca se detiene
+aunque Spring esté apagado: al volver, la tarea programada emite los pendientes. Y si Spring no responde,
+Django entrega su PDF interno de respaldo.
 
 ```
                        JWT (el mismo de Django)
@@ -61,6 +81,8 @@ Pruebas: `mvn test`. Se genera el jar con `mvn package`, y se ejecuta con `java 
 | `DJANGO_SECRET_KEY` | la clave de desarrollo del backend | Validar el JWT (HS256) |
 | `MS_API_KEY` | `clave-servicio-dev-2026` | Django la envía en `X-API-Key` al registrar eventos |
 | `PORT` | 8081 | Puerto del servicio |
+| `FERRETERIA_NOMBRE` `FERRETERIA_RUC` `FERRETERIA_DIRECCION` `FERRETERIA_TELEFONO` | los de Django | Datos impresos en los comprobantes |
+| `TAREAS_ACTIVAS` | true | Apaga la facturación automática y el cierre programado |
 
 ## 3. Endpoints
 Todos usan el **token de Django**: `Authorization: Bearer <access>`, el mismo que devuelve `POST /api/auth/login/` en Django.
@@ -68,6 +90,18 @@ Todos usan el **token de Django**: `Authorization: Bearer <access>`, el mismo qu
 | Método y ruta | Quién | Qué devuelve |
 |---|---|---|
 | `GET /api/salud` | Público | Estado del servicio y de la base |
+| `GET /api/comprobantes/venta/{id}` | ADMIN o VENDEDOR | Datos del comprobante (lo emite si no existe): número, hash, texto del QR, total en letras |
+| `GET /api/comprobantes/venta/{id}/pdf?formato=A5\|TICKET` | ADMIN o VENDEDOR | Representación impresa (A5 o ticket de 80 mm) |
+| `GET /api/comprobantes/venta/{id}/xml` | ADMIN o VENDEDOR | XML UBL 2.1 |
+| `GET /api/comprobantes?estado=&tipo=&desde=&hasta=` | ADMIN | Registro de comprobantes emitidos |
+| `POST /api/comprobantes/procesar` | ADMIN | Emitir pendientes y dar de baja anulados ahora |
+| `GET /api/reportes/ventas?desde=&hasta=` | ADMIN | Ventas del rango por día, vendedor, categoría, pago, canal y top 20 |
+| `GET /api/reportes/ventas/pdf` · `/ventas/excel` | ADMIN | Lo mismo en PDF o Excel (el Excel trae además cada venta) |
+| `GET /api/reportes/cajas?desde=&hasta=` | ADMIN | Arqueos: esperado, contado, faltante/sobrante, por vendedor |
+| `GET /api/reportes/cajas/pdf` · `/cajas/excel` | ADMIN | PDF o Excel |
+| `GET /api/reportes/kardex?codigo=&desde=&hasta=` · `/kardex/excel` | ADMIN | Kardex de un producto |
+| `GET /api/cierres` | ADMIN | Últimos 60 cierres del día |
+| `POST /api/cierres/ejecutar?fecha=` | ADMIN | Generar el cierre ahora (para la demostración) |
 | `GET /api/reportes/ventas-dia?fecha=2026-10-27` | ADMIN | Totales, IGV, ticket, por pago, vendedor, canal, hora y top 10 |
 | `GET /api/reportes/ventas-dia/pdf?fecha=…` | ADMIN | El mismo reporte en PDF |
 | `GET /api/reportes/stock-critico` | ADMIN | Productos por reponer con cantidad y costo sugeridos |
@@ -114,18 +148,28 @@ src/main/java/pe/tecsup/ferreteria/ms/
 ├─ config/        FerreteriaProperties (ferreteria.*), WebConfig (CORS + interceptor)
 ├─ seguridad/     JwtDjangoService (valida el JWT de Django), AutenticacionInterceptor, UsuarioToken
 ├─ dominio/
-│  ├─ django/     Venta, DetalleVenta, Producto, Categoria, Proveedor, Cliente, Usuario  (@Immutable: solo lectura)
-│  └─ auditoria/  EventoAuditoria, NivelEvento                                       (tabla propia)
-├─ repositorio/   VentaRepository, ProductoRepository (sin save/delete), EventoAuditoriaRepository
-├─ servicio/      ReporteService, PdfService (OpenPDF), AuditoriaService
-└─ web/           ReporteController, AuditoriaController, SaludController, ManejadorErrores, dto/
+│  ├─ django/       Venta, DetalleVenta, Producto, Categoria, Proveedor, Cliente, Usuario,
+│  │                Caja, MovimientoCaja, MovimientoInventario          (@Immutable: solo lectura)
+│  ├─ facturacion/  Comprobante                                          (tabla propia ms_comprobante)
+│  ├─ cierre/       CierreDiario                                         (tabla propia ms_cierre_diario)
+│  └─ auditoria/    EventoAuditoria, NivelEvento                         (tabla propia ms_evento_auditoria)
+├─ repositorio/     lectura de Django (sin save/delete) y repositorios JPA de las tablas propias
+├─ servicio/
+│  ├─ facturacion/  ComprobanteService (XML UBL, hash), ComprobantePdfService (A5 y ticket), QrService, NumeroALetras
+│  ├─ ReporteService, PdfService (OpenPDF), ExcelService (Apache POI)
+│  ├─ CierreService, TareasProgramadas (@Scheduled)
+│  └─ AuditoriaService
+└─ web/             ComprobanteController, ReporteController, CierreController, AuditoriaController,
+                    SaludController, ManejadorErrores, dto/
 src/main/resources/
 ├─ application.properties
-└─ schema.sql     crea ms_evento_auditoria si no existe
+└─ schema.sql       crea las tablas ms_* si no existen
 ```
 
 ## 6. Decisiones de diseño
+- **Cada backend con su responsabilidad:** Django registra (transacciones), Spring factura, reporta y audita.
+  Se comunican por REST y comparten el mismo login (JWT).
 - **Solo lectura sobre Django:** `ddl-auto=none`, entidades `@Immutable` y repositorios sin métodos de escritura. Así Spring no puede alterar el stock ni las ventas.
 - **No se mapea la contraseña** de `cuentas_usuario`.
-- **Un solo login:** se valida el mismo JWT de SimpleJWT (HS256 con el `SECRET_KEY` de Django). Los reportes y la lectura de la bitácora exigen rol ADMIN.
+- **Un solo login:** se valida el mismo JWT de SimpleJWT (HS256 con el `SECRET_KEY` de Django). Los reportes, los cierres y la bitácora exigen rol ADMIN; el comprobante de una venta lo puede pedir también el Vendedor.
 - **Fechas:** Django guarda en UTC, y los reportes cortan el día en hora de Lima (`ferreteria.zona-horaria`).

@@ -1,5 +1,6 @@
 package pe.tecsup.ferreteria.ms.config;
 
+import java.math.BigDecimal;
 import java.time.ZoneId;
 import java.util.List;
 
@@ -12,7 +13,9 @@ public record FerreteriaProperties(
         Auditoria auditoria,
         Cors cors,
         Negocio negocio,
-        String zonaHoraria) {
+        String zonaHoraria,
+        BigDecimal igvTasa,
+        Tareas tareas) {
 
     public record Jwt(String secret) { }
 
@@ -20,7 +23,23 @@ public record FerreteriaProperties(
 
     public record Cors(List<String> origenes) { }
 
-    public record Negocio(String nombre, String ruc) { }
+    public record Negocio(String nombre, String ruc, String direccion, String telefono) { }
+
+    /** Procesos programados: emisión automática de comprobantes y cierre del día. */
+    public record Tareas(boolean activas, int diasPendientes) { }
+
+    /** Tasa del IGV (0.18 por defecto, igual que IGV_TASA de Django). */
+    public BigDecimal igv() {
+        return igvTasa == null ? new BigDecimal("0.18") : igvTasa;
+    }
+
+    public boolean tareasActivas() {
+        return tareas == null || tareas.activas();
+    }
+
+    public int diasPendientes() {
+        return tareas == null || tareas.diasPendientes() <= 0 ? 7 : tareas.diasPendientes();
+    }
 
     public ZoneId zona() {
         return ZoneId.of(zonaHoraria == null ? "America/Lima" : zonaHoraria);

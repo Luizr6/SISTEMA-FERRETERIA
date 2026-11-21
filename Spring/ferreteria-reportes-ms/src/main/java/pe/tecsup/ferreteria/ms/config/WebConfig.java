@@ -33,6 +33,6 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedOrigins(props.cors().origenes().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "OPTIONS")
                 .allowedHeaders("Authorization", "Content-Type", "X-API-Key")
-                .exposedHeaders("Content-Disposition");
+                .exposedHeaders("Content-Disposition", "X-Comprobante");
     }
 }

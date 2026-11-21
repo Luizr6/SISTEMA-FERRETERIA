@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Bot, ChevronLeft, FlaskConical, Loader2, MessageCircle, Send, UserRound } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Bot, ChevronLeft, FlaskConical, Loader2, MessageCircle, Send, Trash2, UserRound } from 'lucide-react'
 import { whatsappService } from '../services/comercial'
 import { errorMessage, hace, hora } from '../utils/format'
 import { useToast } from '../components/ui/Toast'
 import { useAvisos } from '../context/AvisosContext'
+import { useAuth } from '../context/AuthContext'
 import PageHeader from '../components/ui/PageHeader'
 import Spinner, { Vacio } from '../components/ui/Spinner'
 import Modal from '../components/ui/Modal'
@@ -21,9 +22,12 @@ function TextoWa({ texto }) {
   ))
 }
 
-function Chat({ conv, onVolver, onCambio }) {
+function Chat({ conv, onVolver, onCambio, onEliminada }) {
   const toast = useToast()
+  const { isAdmin } = useAuth()
   const [mensajes, setMensajes] = useState(null)
+  const [aEliminar, setAEliminar] = useState(null) // { tipo: 'chat' } | { tipo: 'mensaje', mensaje }
+  const [borrando, setBorrando] = useState(false)
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
   const fin = useRef(null)
@@ -62,6 +66,26 @@ function Chat({ conv, onVolver, onCambio }) {
     }
   }
 
+  const confirmarEliminar = async () => {
+    setBorrando(true)
+    try {
+      if (aEliminar.tipo === 'chat') {
+        await whatsappService.eliminarConversacion(conv.id)
+        toast('Conversación eliminada.')
+        onEliminada(conv.id)
+      } else {
+        await whatsappService.eliminarMensaje(conv.id, aEliminar.mensaje.id)
+        setMensajes((l) => (l || []).filter((m) => m.id !== aEliminar.mensaje.id))
+        toast('Mensaje eliminado.')
+      }
+    } catch (e) {
+      toast(errorMessage(e), 'error')
+    } finally {
+      setBorrando(false)
+      setAEliminar(null)
+    }
+  }
+
   return (
     <div className="panel flex h-[min(72vh,720px)] flex-col overflow-hidden">
       <div className="flex items-center gap-3 border-b border-gris-100 px-4 py-3">
@@ -72,6 +96,12 @@ function Chat({ conv, onVolver, onCambio }) {
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">{conv.nombre || conv.telefono}</p>
           <p className="cifra text-xs text-gris-500">+{conv.telefono}{conv.cliente_nombre ? `, cliente ${conv.cliente_nombre}` : ''}</p>
+          {conv.asesor_solicitado && (
+            <p className="mt-0.5 text-xs font-semibold text-aviso-700">
+              Pidió hablar con un asesor {hace(conv.asesor_solicitado)}
+              {conv.pausa_automatica ? ' · el bot vuelve solo si nadie responde en 15 min' : conv.bot_activo ? ' · fuera de horario' : ''}
+            </p>
+          )}
         </div>
         <button onClick={cambiarBot} role="switch" aria-checked={conv.bot_activo}
           title={conv.bot_activo ? 'El bot responde solo. Desactívalo para atender tú.' : 'Solo responden personas.'}
@@ -79,6 +109,10 @@ function Chat({ conv, onVolver, onCambio }) {
             conv.bot_activo ? 'border-exito-100 bg-exito-50 text-exito-700' : 'border-gris-200 bg-superficie text-gris-600'}`}>
           <Bot className="h-3.5 w-3.5" /> Bot {conv.bot_activo ? 'activo' : 'en pausa'}
         </button>
+        {isAdmin && (
+          <button className="icon-btn hover:bg-peligro-50 hover:text-peligro-600" onClick={() => setAEliminar({ tipo: 'chat' })}
+            title="Eliminar conversación" aria-label="Eliminar conversación"><Trash2 className="h-4 w-4" /></button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto bg-gris-50 px-4 py-4" style={{ backgroundImage: 'radial-gradient(rgb(var(--gris-200)) 1px, transparent 1.2px)', backgroundSize: '18px 18px' }}>
@@ -87,7 +121,11 @@ function Chat({ conv, onVolver, onCambio }) {
             {mensajes.map((m) => {
               const sale = m.direccion === 'SALIENTE'
               return (
-                <li key={m.id} className={`flex ${sale ? 'justify-end' : 'justify-start'}`}>
+                <li key={m.id} className={`group flex items-center gap-1 ${sale ? 'justify-end' : 'justify-start'}`}>
+                  {isAdmin && sale && (
+                    <button onClick={() => setAEliminar({ tipo: 'mensaje', mensaje: m })} title="Eliminar mensaje" aria-label="Eliminar mensaje"
+                      className="icon-btn h-7 w-7 opacity-60 hover:text-peligro-600 focus:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+                  )}
                   <div className={`max-w-[82%] rounded-[16px] px-3.5 py-2 text-[14px] leading-snug shadow-sm ${
                     sale ? 'rounded-br-[4px] bg-acento-600 text-white' : 'rounded-bl-[4px] border border-gris-200 bg-superficie text-gris-900'}`}>
                     {sale && (
@@ -105,6 +143,10 @@ function Chat({ conv, onVolver, onCambio }) {
                       <span>{hora(m.fecha)}</span>
                     </p>
                   </div>
+                  {isAdmin && !sale && (
+                    <button onClick={() => setAEliminar({ tipo: 'mensaje', mensaje: m })} title="Eliminar mensaje" aria-label="Eliminar mensaje"
+                      className="icon-btn h-7 w-7 opacity-60 hover:text-peligro-600 focus:opacity-100 lg:opacity-0 lg:group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+                  )}
                 </li>
               )
             })}
@@ -120,6 +162,19 @@ function Chat({ conv, onVolver, onCambio }) {
           {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </button>
       </form>
+
+      <Modal open={!!aEliminar} onClose={() => !borrando && setAEliminar(null)} size="sm"
+        title={aEliminar?.tipo === 'chat' ? 'Eliminar conversación' : 'Eliminar mensaje'}
+        footer={<><button className="btn-secondary" disabled={borrando} onClick={() => setAEliminar(null)}>Cancelar</button>
+          <button className="btn-danger" disabled={borrando} onClick={confirmarEliminar}>
+            {borrando && <Loader2 className="h-4 w-4 animate-spin" />} Eliminar</button></>}>
+        <p className="text-sm text-gris-600">
+          {aEliminar?.tipo === 'chat'
+            ? <>Se borrará el chat con <b className="text-gris-900">{conv.nombre || `+${conv.telefono}`}</b> y todos sus mensajes del sistema. Los pedidos que haya hecho se conservan.</>
+            : 'El mensaje se borrará del historial del sistema.'}
+          {' '}Al cliente no se le borra nada en su celular.
+        </p>
+      </Modal>
     </div>
   )
 }
@@ -173,6 +228,8 @@ function Simulador({ onEnviado, onCerrar }) {
 
 export default function WhatsApp() {
   const avisos = useAvisos()
+  const toast = useToast()
+  const [params, setParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [sel, setSel] = useState(null)
   const [simular, setSimular] = useState(false)
@@ -185,9 +242,23 @@ export default function WhatsApp() {
     return () => clearInterval(t)
   }, [recargar])
 
+  // Llegada desde Pedidos: /whatsapp?tel=51999111222 abre directamente ese chat
+  useEffect(() => {
+    const tel = (params.get('tel') || '').replace(/\D/g, '')
+    if (!tel) return
+    setParams({}, { replace: true })
+    whatsappService.conversaciones({ search: tel })
+      .then((lista) => {
+        const c = lista.find((x) => x.telefono === tel)
+        if (c) abrir(c)
+        else toast('Ese cliente ya no tiene un chat en el sistema (pudo haberse eliminado).', 'error')
+      })
+      .catch((e) => toast(errorMessage(e), 'error'))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const abrir = (c) => {
     setSel(c)
-    setConvs((l) => l.map((x) => (x.id === c.id ? { ...x, no_leidos: 0 } : x)))
+    setConvs((l) => (l || []).map((x) => (x.id === c.id ? { ...x, no_leidos: 0 } : x)))
     setTimeout(avisos.refrescar, 600)
   }
 
@@ -202,7 +273,9 @@ export default function WhatsApp() {
   return (
     <>
       <PageHeader title="WhatsApp" subtitle="Conversaciones del bot con tus clientes. Puedes tomar el chat y responder tú.">
-        <button className="btn-secondary" onClick={() => setSimular(true)}><FlaskConical className="h-4 w-4" /> Simular cliente</button>
+        {estado?.modo === 'SIMULADO' && (
+          <button className="btn-secondary" onClick={() => setSimular(true)}><FlaskConical className="h-4 w-4" /> Simular cliente</button>
+        )}
       </PageHeader>
 
       {estado?.modo === 'SIMULADO' && (
@@ -219,7 +292,7 @@ export default function WhatsApp() {
             {convs === null ? <Spinner /> : convs.length === 0 ? (
               <div className="panel">
                 <Vacio icon={MessageCircle} titulo="Sin conversaciones" texto="Cuando un cliente escriba al número de la ferretería, aparecerá aquí.">
-                  <button className="btn-primary" onClick={() => setSimular(true)}>Probar con un mensaje</button>
+                  {estado?.modo === 'SIMULADO' && <button className="btn-primary" onClick={() => setSimular(true)}>Probar con un mensaje</button>}
                 </Vacio>
               </div>
             ) : (
@@ -234,7 +307,12 @@ export default function WhatsApp() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline justify-between gap-2">
-                          <span className="truncate font-semibold">{c.nombre || `+${c.telefono}`}</span>
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-semibold">{c.nombre || `+${c.telefono}`}</span>
+                            {c.asesor_solicitado && (
+                              <span className="shrink-0 rounded-full bg-aviso-50 px-1.5 text-[11px] font-semibold leading-[18px] text-aviso-700">Pidió asesor</span>
+                            )}
+                          </span>
                           <span className="shrink-0 text-xs text-gris-500">{hace(c.ultimo_mensaje)}</span>
                         </span>
                         <span className="flex items-center justify-between gap-2">
@@ -255,7 +333,8 @@ export default function WhatsApp() {
         <section className={sel ? '' : 'hidden lg:block'}>
           {sel ? (
             <Chat key={sel.id} conv={sel} onVolver={() => setSel(null)}
-              onCambio={(c) => { setSel(c); setConvs((l) => l.map((x) => (x.id === c.id ? c : x))) }} />
+              onCambio={(c) => { setSel(c); setConvs((l) => l.map((x) => (x.id === c.id ? c : x))) }}
+              onEliminada={(id) => { setSel(null); setConvs((l) => l.filter((x) => x.id !== id)); avisos.refrescar() }} />
           ) : (
             <div className="panel flex h-[min(72vh,720px)] items-center justify-center">
               <Vacio icon={MessageCircle} titulo="Elige una conversación" texto="Verás lo que preguntó el cliente y lo que respondió el bot." />

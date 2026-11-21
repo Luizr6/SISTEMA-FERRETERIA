@@ -1,0 +1,47 @@
+# ============================================================
+#  SISTEMA-FERRETERIA - archivos que NUNCA se suben a GitHub
+# ============================================================
+
+# --- Claves y configuración local (WhatsApp, Groq, base de datos) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.jks
+*.keystore
+
+# --- Django / Python ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+db.sqlite3
+staticfiles/
+media/
+*.log
+
+# --- Web (React + Vite) ---
+node_modules/
+dist/
+
+# --- Spring Boot (Maven) ---
+target/
+
+# --- App Android (Android Studio / Gradle) ---
+.gradle/
+build/
+local.properties
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+captures/
+
+# --- Editores y sistema ---
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini

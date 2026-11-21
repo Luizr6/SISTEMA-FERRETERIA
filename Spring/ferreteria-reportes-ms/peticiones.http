@@ -23,6 +23,38 @@ Authorization: Bearer {{token}}
 GET http://localhost:8081/api/reportes/stock-critico
 Authorization: Bearer {{token}}
 
+### Comprobante de la venta 1 (lo emite si no existe)
+GET http://localhost:8081/api/comprobantes/venta/1
+Authorization: Bearer {{token}}
+
+### Ticket de 80 mm para la impresora térmica
+GET http://localhost:8081/api/comprobantes/venta/1/pdf?formato=TICKET
+Authorization: Bearer {{token}}
+
+### XML UBL 2.1 del comprobante
+GET http://localhost:8081/api/comprobantes/venta/1/xml
+Authorization: Bearer {{token}}
+
+### Registro de comprobantes
+GET http://localhost:8081/api/comprobantes?estado=EMITIDO
+Authorization: Bearer {{token}}
+
+### Ventas de un rango
+GET http://localhost:8081/api/reportes/ventas?desde=2026-11-01&hasta=2026-11-30
+Authorization: Bearer {{token}}
+
+### Arqueos de caja
+GET http://localhost:8081/api/reportes/cajas?desde=2026-11-01
+Authorization: Bearer {{token}}
+
+### Kardex de un producto
+GET http://localhost:8081/api/reportes/kardex?codigo=CEM-001
+Authorization: Bearer {{token}}
+
+### Generar el cierre de hoy (la tarea lo hace sola a las 23:00)
+POST http://localhost:8081/api/cierres/ejecutar
+Authorization: Bearer {{token}}
+
 ### Registrar un evento como lo hace Django (API key de servicio)
 POST http://localhost:8081/api/auditoria/eventos
 Content-Type: application/json
